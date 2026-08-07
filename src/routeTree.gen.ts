@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRevisionRouteImport } from './routes/_authenticated/revision'
 import { Route as ChapterChapterIdRouteImport } from './routes/chapter.$chapterId'
 import { Route as SubjectSubjectIdRouteImport } from './routes/subject.$subjectId'
 import { Route as AuthenticatedTestTestIdRouteImport } from './routes/_authenticated/test.$testId'
@@ -36,6 +37,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRevisionRoute = AuthenticatedRevisionRouteImport.update({
+  id: '/revision',
+  path: '/revision',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ChapterChapterIdRoute = ChapterChapterIdRouteImport.update({
   id: '/chapter/$chapterId',
   path: '/chapter/$chapterId',
@@ -56,6 +62,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/test/$testId': typeof AuthenticatedTestTestIdRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/test/$testId': typeof AuthenticatedTestTestIdRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/_authenticated/test/$testId': typeof AuthenticatedTestTestIdRoute
@@ -84,6 +93,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/test/$testId'
@@ -92,6 +102,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/test/$testId'
@@ -101,6 +112,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/_authenticated/test/$testId'
@@ -144,6 +156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/revision': {
+      id: '/_authenticated/revision'
+      path: '/revision'
+      fullPath: '/revision'
+      preLoaderRoute: typeof AuthenticatedRevisionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/chapter/$chapterId': {
       id: '/chapter/$chapterId'
       path: '/chapter/$chapterId'
@@ -170,11 +189,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedRevisionRoute: typeof AuthenticatedRevisionRoute
   AuthenticatedTestTestIdRoute: typeof AuthenticatedTestTestIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedRevisionRoute: AuthenticatedRevisionRoute,
   AuthenticatedTestTestIdRoute: AuthenticatedTestTestIdRoute,
 }
 
