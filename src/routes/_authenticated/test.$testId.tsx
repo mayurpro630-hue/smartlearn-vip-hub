@@ -413,7 +413,13 @@ function TestPage() {
   );
 }
 
-function ReportDialog({ questionId, userId }: { questionId: string; userId?: string }) {
+function ReportDialog({
+  questionId,
+  userId,
+}: {
+  questionId: string;
+  userId: string | undefined;
+}) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
 

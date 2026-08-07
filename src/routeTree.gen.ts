@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ChapterChapterIdRouteImport } from './routes/chapter.$chapterId'
 import { Route as SubjectSubjectIdRouteImport } from './routes/subject.$subjectId'
+import { Route as AuthenticatedTestTestIdRouteImport } from './routes/_authenticated/test.$testId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +46,11 @@ const SubjectSubjectIdRoute = SubjectSubjectIdRouteImport.update({
   path: '/subject/$subjectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTestTestIdRoute = AuthenticatedTestTestIdRouteImport.update({
+  id: '/test/$testId',
+  path: '/test/$testId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
+  '/test/$testId': typeof AuthenticatedTestTestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
+  '/test/$testId': typeof AuthenticatedTestTestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,14 +76,25 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
+  '/_authenticated/test/$testId': typeof AuthenticatedTestTestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/dashboard' | '/chapter/$chapterId' | '/subject/$subjectId'
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/chapter/$chapterId'
+    | '/subject/$subjectId'
+    | '/test/$testId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/auth' | '/dashboard' | '/chapter/$chapterId' | '/subject/$subjectId'
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/chapter/$chapterId'
+    | '/subject/$subjectId'
+    | '/test/$testId'
   id:
     | '__root__'
     | '/'
@@ -84,6 +103,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
+    | '/_authenticated/test/$testId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -138,15 +158,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubjectSubjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/test/$testId': {
+      id: '/_authenticated/test/$testId'
+      path: '/test/$testId'
+      fullPath: '/test/$testId'
+      preLoaderRoute: typeof AuthenticatedTestTestIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedTestTestIdRoute: typeof AuthenticatedTestTestIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedTestTestIdRoute: AuthenticatedTestTestIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
