@@ -243,7 +243,7 @@ function TestPage() {
   }
 
   if (submitted && result) {
-    const percent = Math.round((result.correct / result.total) * 100);
+    const percent = result.total > 0 ? Math.round((result.correct / result.total) * 100) : 0;
     const shareText = `I scored ${result.correct}/${result.total} (${percent}%) in "${q.data.chapters?.name} — ${q.data.title}" on Mayur Education! 🎓 Can you beat me? ${typeof window !== "undefined" ? window.location.origin : ""}`;
 
     return (
@@ -256,6 +256,12 @@ function TestPage() {
           <p className="mt-2 text-sm opacity-90">
             {percent}% · {Math.floor(elapsed / 60)}m {elapsed % 60}s · {switches} focus warnings
           </p>
+          {result.pending > 0 && (
+            <p className="mt-2 text-sm opacity-90">
+              {result.pending} written answer{result.pending > 1 ? "s" : ""} sent to your teacher for
+              manual grading.
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button asChild variant="secondary">
               <a
@@ -275,31 +281,58 @@ function TestPage() {
         <h2 className="mt-8 text-xl font-bold">Answer review</h2>
         <div className="mt-3 space-y-3">
           {questions.map((qq, i) => {
+            const subjective = qq.question_type === "subjective";
             const chosen = answers[qq.id];
-            const ok = chosen === qq.correct_option;
+            const ok = !subjective && chosen === qq.correct_option;
             return (
               <div key={qq.id} className="surface-card p-4">
                 <div className="flex items-start gap-2">
                   <span
-                    className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${ok ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}
+                    className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                      subjective
+                        ? "bg-muted text-muted-foreground"
+                        : ok
+                          ? "bg-success text-success-foreground"
+                          : "bg-destructive text-destructive-foreground"
+                    }`}
                   >
-                    {ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                    {subjective ? (
+                      <Clock className="h-3.5 w-3.5" />
+                    ) : ok ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <X className="h-3.5 w-3.5" />
+                    )}
                   </span>
                   <p className="min-w-0 font-semibold">
                     {i + 1}. {qq.question_text}
                   </p>
                 </div>
-                <p className="mt-2 text-sm">
-                  <span className="text-muted-foreground">Your answer: </span>
-                  {chosen ? `${chosen}. ${optionText(qq, chosen)}` : "Not answered"}
-                </p>
-                {!ok && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Correct answer: </span>
-                    <span className="font-semibold text-success">
-                      {qq.correct_option}. {optionText(qq, qq.correct_option)}
-                    </span>
-                  </p>
+                {subjective ? (
+                  <>
+                    <p className="mt-2 text-sm whitespace-pre-wrap">
+                      <span className="text-muted-foreground">Your answer: </span>
+                      {textAnswers[qq.id]?.trim() || "Not answered"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Awaiting manual grading · worth {qq.marks} mark{qq.marks > 1 ? "s" : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">
+                      <span className="text-muted-foreground">Your answer: </span>
+                      {chosen ? `${chosen}. ${optionText(qq, chosen)}` : "Not answered"}
+                    </p>
+                    {!ok && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">Correct answer: </span>
+                        <span className="font-semibold text-success">
+                          {qq.correct_option}. {optionText(qq, qq.correct_option)}
+                        </span>
+                      </p>
+                    )}
+                  </>
                 )}
                 {qq.explanation && (
                   <p className="mt-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
@@ -307,7 +340,10 @@ function TestPage() {
                     {qq.explanation}
                   </p>
                 )}
-                {!ok && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Time on this question: {questionTime[qq.id] ?? 0}s
+                </p>
+                {!subjective && !ok && (
                   <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                     <Bookmark className="h-3.5 w-3.5" /> Saved to your Revision list
                   </p>
@@ -316,6 +352,7 @@ function TestPage() {
             );
           })}
         </div>
+
         <Button asChild variant="outline" className="mt-6">
           <Link to="/chapter/$chapterId" params={{ chapterId: q.data.chapter_id }}>
             Back to chapter
