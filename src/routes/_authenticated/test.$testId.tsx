@@ -116,6 +116,18 @@ function TestPage() {
     return () => clearInterval(id);
   }, [submitted]);
 
+  // Per-question time tracking
+  const currentId = questions[current]?.id;
+  useEffect(() => {
+    if (submitted || !currentId) return;
+    const id = setInterval(
+      () => setQuestionTime((t) => ({ ...t, [currentId]: (t[currentId] ?? 0) + 1 })),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [submitted, currentId]);
+
+
   // Proctoring: tab switch / minimise / back button
   useEffect(() => {
     if (submitted) return;
