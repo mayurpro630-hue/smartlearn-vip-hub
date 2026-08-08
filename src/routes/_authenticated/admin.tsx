@@ -152,6 +152,10 @@ function ContentManager() {
   const [correct, setCorrect] = useState("A");
   const [hint, setHint] = useState("");
   const [explanation, setExplanation] = useState("");
+  const [qType, setQType] = useState<"mcq" | "subjective">("mcq");
+  const [qMarks, setQMarks] = useState("1");
+  const [modelAnswer, setModelAnswer] = useState("");
+
 
   const tree = useQuery({
     queryKey: ["admin-tree"],
