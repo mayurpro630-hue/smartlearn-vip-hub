@@ -363,7 +363,12 @@ function TestPage() {
   }
 
   const question = questions[current]!;
-  const answeredCount = Object.keys(answers).length;
+  const isSubjective = question.question_type === "subjective";
+  const answeredCount = questions.filter((qq) =>
+    qq.question_type === "subjective"
+      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
+      : Boolean(answers[qq.id]),
+  ).length;
   const lowTime = remaining <= 30;
 
   return (
@@ -395,29 +400,64 @@ function TestPage() {
       </div>
 
       <div className="surface-card mt-4 p-5">
-        <p className="font-semibold">{question.question_text}</p>
-
-        <div className="mt-4 space-y-2">
-          {LETTERS.map((l) => {
-            const selected = answers[question.id] === l;
-            return (
-              <button
-                key={l}
-                onClick={() => setAnswers((a) => ({ ...a, [question.id]: l }))}
-                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
-                  selected
-                    ? "border-primary bg-primary-soft font-semibold text-primary"
-                    : "border-border hover:bg-accent"
-                }`}
-              >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
-                  {l}
-                </span>
-                <span className="min-w-0">{optionText(question, l)}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+            {isSubjective ? "Long answer" : "Multiple choice"}
+          </span>
+          <span>
+            {question.marks} mark{question.marks > 1 ? "s" : ""}
+          </span>
+          <span>· {questionTime[question.id] ?? 0}s on this question</span>
         </div>
+        <p className="mt-2 font-semibold">{question.question_text}</p>
+
+        {isSubjective ? (
+          <div className="mt-4">
+            <label
+              htmlFor={`answer-${question.id}`}
+              className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+            >
+              Write your answer here
+            </label>
+            <Textarea
+              id={`answer-${question.id}`}
+              rows={9}
+              maxLength={5000}
+              className="mt-2 min-h-[200px] text-base"
+              placeholder="Type your full answer here…"
+              value={textAnswers[question.id] ?? ""}
+              onChange={(e) =>
+                setTextAnswers((t) => ({ ...t, [question.id]: e.target.value }))
+              }
+            />
+            <p className="mt-1 text-right text-xs text-muted-foreground">
+              {(textAnswers[question.id] ?? "").length}/5000 characters
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {LETTERS.map((l) => {
+              const selected = answers[question.id] === l;
+              return (
+                <button
+                  key={l}
+                  onClick={() => setAnswers((a) => ({ ...a, [question.id]: l }))}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+                    selected
+                      ? "border-primary bg-primary-soft font-semibold text-primary"
+                      : "border-border hover:bg-accent"
+                  }`}
+                >
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
+                    {l}
+                  </span>
+                  <span className="min-w-0">{optionText(question, l)}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button
