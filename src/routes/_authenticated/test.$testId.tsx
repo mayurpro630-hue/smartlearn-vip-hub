@@ -162,11 +162,20 @@ function TestPage() {
     submittedRef.current = true;
     setSaving(true);
 
-    const graded = questions.map((qq) => ({
-      question_id: qq.id,
-      selected_option: answers[qq.id] ?? null,
-      is_correct: answers[qq.id] === qq.correct_option,
-    }));
+    const graded = questions.map((qq) => {
+      const subjective = qq.question_type === "subjective";
+      return {
+        question_id: qq.id,
+        selected_option: subjective ? null : (answers[qq.id] ?? null),
+        answer_text: subjective ? (textAnswers[qq.id]?.trim() || null) : null,
+        is_correct: !subjective && answers[qq.id] === qq.correct_option,
+        graded: !subjective,
+        awarded_marks: !subjective && answers[qq.id] === qq.correct_option ? qq.marks : 0,
+        time_spent_seconds: questionTime[qq.id] ?? 0,
+      };
+    });
+    const mcqs = questions.filter((qq) => qq.question_type !== "subjective");
+    const pending = questions.length - mcqs.length;
     const correct = graded.filter((g) => g.is_correct).length;
 
     const { data: attempt, error } = await supabase
@@ -194,7 +203,7 @@ function TestPage() {
       .from("attempt_answers")
       .insert(graded.map((g) => ({ ...g, attempt_id: attempt.id, user_id: user.id })));
 
-    const wrong = graded.filter((g) => !g.is_correct);
+    const wrong = graded.filter((g) => g.graded && !g.is_correct);
     if (wrong.length > 0) {
       await supabase
         .from("bookmarks")
@@ -204,12 +213,13 @@ function TestPage() {
         );
     }
 
-    setResult({ correct, total: questions.length });
+    setResult({ correct, total: mcqs.length, pending });
     setSubmitted(true);
     setSaving(false);
     queryClient.invalidateQueries();
     toast.success(auto ? "Time up — test submitted" : "Test submitted");
   }
+
 
   useEffect(() => {
     if (!submitted && remaining === 0 && questions.length > 0 && elapsed > 0) {
