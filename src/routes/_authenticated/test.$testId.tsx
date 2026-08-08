@@ -509,7 +509,10 @@ function TestPage() {
             className={`h-8 w-8 rounded-lg text-xs font-bold ${
               i === current
                 ? "bg-primary text-primary-foreground"
-                : answers[qq.id]
+                : (qq.question_type === "subjective"
+                      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
+                      : Boolean(answers[qq.id]))
+
                   ? "bg-success text-success-foreground"
                   : "bg-muted text-muted-foreground"
             }`}
