@@ -16,30 +16,42 @@ export type Database = {
     Tables: {
       attempt_answers: {
         Row: {
+          answer_text: string | null
           attempt_id: string
+          awarded_marks: number | null
           created_at: string
+          graded: boolean
           id: string
           is_correct: boolean
           question_id: string
           selected_option: string | null
+          time_spent_seconds: number
           user_id: string
         }
         Insert: {
+          answer_text?: string | null
           attempt_id: string
+          awarded_marks?: number | null
           created_at?: string
+          graded?: boolean
           id?: string
           is_correct?: boolean
           question_id: string
           selected_option?: string | null
+          time_spent_seconds?: number
           user_id: string
         }
         Update: {
+          answer_text?: string | null
           attempt_id?: string
+          awarded_marks?: number | null
           created_at?: string
+          graded?: boolean
           id?: string
           is_correct?: boolean
           question_id?: string
           selected_option?: string | null
+          time_spent_seconds?: number
           user_id?: string
         }
         Relationships: [
@@ -219,12 +231,17 @@ export type Database = {
           explanation: string | null
           hint: string | null
           id: string
+          marks: number
+          model_answer: string | null
           option_a: string
           option_b: string
           option_c: string
           option_d: string
           position: number
+          published_at: string | null
           question_text: string
+          question_type: Database["public"]["Enums"]["question_kind"]
+          status: Database["public"]["Enums"]["publish_status"]
           test_id: string
         }
         Insert: {
@@ -233,12 +250,17 @@ export type Database = {
           explanation?: string | null
           hint?: string | null
           id?: string
+          marks?: number
+          model_answer?: string | null
           option_a: string
           option_b: string
           option_c: string
           option_d: string
           position?: number
+          published_at?: string | null
           question_text: string
+          question_type?: Database["public"]["Enums"]["question_kind"]
+          status?: Database["public"]["Enums"]["publish_status"]
           test_id: string
         }
         Update: {
@@ -247,12 +269,17 @@ export type Database = {
           explanation?: string | null
           hint?: string | null
           id?: string
+          marks?: number
+          model_answer?: string | null
           option_a?: string
           option_b?: string
           option_c?: string
           option_d?: string
           position?: number
+          published_at?: string | null
           question_text?: string
+          question_type?: Database["public"]["Enums"]["question_kind"]
+          status?: Database["public"]["Enums"]["publish_status"]
           test_id?: string
         }
         Relationships: [
@@ -407,6 +434,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "student"
+      publish_status: "draft" | "published"
+      question_kind: "mcq" | "subjective"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -535,6 +564,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "student"],
+      publish_status: ["draft", "published"],
+      question_kind: ["mcq", "subjective"],
     },
   },
 } as const

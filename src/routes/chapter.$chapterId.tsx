@@ -85,13 +85,17 @@ function ChapterPage() {
               </span>
             </span>
             <Button asChild size="sm" className="shrink-0">
-              <Link
-                to={user ? "/test/$testId" : "/auth"}
-                params={user ? { testId: t.id } : undefined}
-              >
-                <PlayCircle className="h-4 w-4" /> Start
-              </Link>
+              {user ? (
+                <Link to="/test/$testId" params={{ testId: t.id }}>
+                  <PlayCircle className="h-4 w-4" /> Start
+                </Link>
+              ) : (
+                <Link to="/auth">
+                  <PlayCircle className="h-4 w-4" /> Start
+                </Link>
+              )}
             </Button>
+
           </div>
         ))}
         {!q.isLoading && tests.length === 0 && (

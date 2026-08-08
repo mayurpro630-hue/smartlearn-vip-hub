@@ -47,6 +47,8 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Question = {
   id: string;
   question_text: string;
+  question_type: string;
+  marks: number;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -68,13 +70,17 @@ function TestPage() {
   const queryClient = useQueryClient();
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
+  const [questionTime, setQuestionTime] = useState<Record<string, number>>({});
   const [current, setCurrent] = useState(0);
   const [switches, setSwitches] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ correct: number; total: number } | null>(null);
+  const [result, setResult] = useState<{ correct: number; total: number; pending: number } | null>(
+    null,
+  );
   const submittedRef = useRef(false);
 
   const q = useQuery({
@@ -83,7 +89,7 @@ function TestPage() {
       const { data, error } = await supabase
         .from("tests")
         .select(
-          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position)",
+          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, question_type, marks, status, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position)",
         )
         .eq("id", testId)
         .maybeSingle();
@@ -93,10 +99,14 @@ function TestPage() {
   });
 
   const questions = useMemo(
-    () => [...((q.data?.questions ?? []) as Question[])].sort((a, b) => a.position - b.position),
+    () =>
+      [...((q.data?.questions ?? []) as (Question & { status: string })[])]
+        .filter((qq) => qq.status === "published")
+        .sort((a, b) => a.position - b.position),
     [q.data],
   );
   const duration = (q.data?.duration_minutes ?? 10) * 60;
+
   const remaining = Math.max(0, duration - elapsed);
 
   // Timer
@@ -105,6 +115,18 @@ function TestPage() {
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [submitted]);
+
+  // Per-question time tracking
+  const currentId = questions[current]?.id;
+  useEffect(() => {
+    if (submitted || !currentId) return;
+    const id = setInterval(
+      () => setQuestionTime((t) => ({ ...t, [currentId]: (t[currentId] ?? 0) + 1 })),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [submitted, currentId]);
+
 
   // Proctoring: tab switch / minimise / back button
   useEffect(() => {
@@ -140,11 +162,20 @@ function TestPage() {
     submittedRef.current = true;
     setSaving(true);
 
-    const graded = questions.map((qq) => ({
-      question_id: qq.id,
-      selected_option: answers[qq.id] ?? null,
-      is_correct: answers[qq.id] === qq.correct_option,
-    }));
+    const graded = questions.map((qq) => {
+      const subjective = qq.question_type === "subjective";
+      return {
+        question_id: qq.id,
+        selected_option: subjective ? null : (answers[qq.id] ?? null),
+        answer_text: subjective ? (textAnswers[qq.id]?.trim() || null) : null,
+        is_correct: !subjective && answers[qq.id] === qq.correct_option,
+        graded: !subjective,
+        awarded_marks: !subjective && answers[qq.id] === qq.correct_option ? qq.marks : 0,
+        time_spent_seconds: questionTime[qq.id] ?? 0,
+      };
+    });
+    const mcqs = questions.filter((qq) => qq.question_type !== "subjective");
+    const pending = questions.length - mcqs.length;
     const correct = graded.filter((g) => g.is_correct).length;
 
     const { data: attempt, error } = await supabase
@@ -172,7 +203,7 @@ function TestPage() {
       .from("attempt_answers")
       .insert(graded.map((g) => ({ ...g, attempt_id: attempt.id, user_id: user.id })));
 
-    const wrong = graded.filter((g) => !g.is_correct);
+    const wrong = graded.filter((g) => g.graded && !g.is_correct);
     if (wrong.length > 0) {
       await supabase
         .from("bookmarks")
@@ -182,12 +213,13 @@ function TestPage() {
         );
     }
 
-    setResult({ correct, total: questions.length });
+    setResult({ correct, total: mcqs.length, pending });
     setSubmitted(true);
     setSaving(false);
     queryClient.invalidateQueries();
     toast.success(auto ? "Time up — test submitted" : "Test submitted");
   }
+
 
   useEffect(() => {
     if (!submitted && remaining === 0 && questions.length > 0 && elapsed > 0) {
@@ -211,7 +243,7 @@ function TestPage() {
   }
 
   if (submitted && result) {
-    const percent = Math.round((result.correct / result.total) * 100);
+    const percent = result.total > 0 ? Math.round((result.correct / result.total) * 100) : 0;
     const shareText = `I scored ${result.correct}/${result.total} (${percent}%) in "${q.data.chapters?.name} — ${q.data.title}" on Mayur Education! 🎓 Can you beat me? ${typeof window !== "undefined" ? window.location.origin : ""}`;
 
     return (
@@ -224,6 +256,12 @@ function TestPage() {
           <p className="mt-2 text-sm opacity-90">
             {percent}% · {Math.floor(elapsed / 60)}m {elapsed % 60}s · {switches} focus warnings
           </p>
+          {result.pending > 0 && (
+            <p className="mt-2 text-sm opacity-90">
+              {result.pending} written answer{result.pending > 1 ? "s" : ""} sent to your teacher for
+              manual grading.
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button asChild variant="secondary">
               <a
@@ -243,31 +281,58 @@ function TestPage() {
         <h2 className="mt-8 text-xl font-bold">Answer review</h2>
         <div className="mt-3 space-y-3">
           {questions.map((qq, i) => {
+            const subjective = qq.question_type === "subjective";
             const chosen = answers[qq.id];
-            const ok = chosen === qq.correct_option;
+            const ok = !subjective && chosen === qq.correct_option;
             return (
               <div key={qq.id} className="surface-card p-4">
                 <div className="flex items-start gap-2">
                   <span
-                    className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${ok ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}
+                    className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                      subjective
+                        ? "bg-muted text-muted-foreground"
+                        : ok
+                          ? "bg-success text-success-foreground"
+                          : "bg-destructive text-destructive-foreground"
+                    }`}
                   >
-                    {ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                    {subjective ? (
+                      <Clock className="h-3.5 w-3.5" />
+                    ) : ok ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <X className="h-3.5 w-3.5" />
+                    )}
                   </span>
                   <p className="min-w-0 font-semibold">
                     {i + 1}. {qq.question_text}
                   </p>
                 </div>
-                <p className="mt-2 text-sm">
-                  <span className="text-muted-foreground">Your answer: </span>
-                  {chosen ? `${chosen}. ${optionText(qq, chosen)}` : "Not answered"}
-                </p>
-                {!ok && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Correct answer: </span>
-                    <span className="font-semibold text-success">
-                      {qq.correct_option}. {optionText(qq, qq.correct_option)}
-                    </span>
-                  </p>
+                {subjective ? (
+                  <>
+                    <p className="mt-2 text-sm whitespace-pre-wrap">
+                      <span className="text-muted-foreground">Your answer: </span>
+                      {textAnswers[qq.id]?.trim() || "Not answered"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Awaiting manual grading · worth {qq.marks} mark{qq.marks > 1 ? "s" : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">
+                      <span className="text-muted-foreground">Your answer: </span>
+                      {chosen ? `${chosen}. ${optionText(qq, chosen)}` : "Not answered"}
+                    </p>
+                    {!ok && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">Correct answer: </span>
+                        <span className="font-semibold text-success">
+                          {qq.correct_option}. {optionText(qq, qq.correct_option)}
+                        </span>
+                      </p>
+                    )}
+                  </>
                 )}
                 {qq.explanation && (
                   <p className="mt-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
@@ -275,7 +340,10 @@ function TestPage() {
                     {qq.explanation}
                   </p>
                 )}
-                {!ok && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Time on this question: {questionTime[qq.id] ?? 0}s
+                </p>
+                {!subjective && !ok && (
                   <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                     <Bookmark className="h-3.5 w-3.5" /> Saved to your Revision list
                   </p>
@@ -284,6 +352,7 @@ function TestPage() {
             );
           })}
         </div>
+
         <Button asChild variant="outline" className="mt-6">
           <Link to="/chapter/$chapterId" params={{ chapterId: q.data.chapter_id }}>
             Back to chapter
@@ -294,7 +363,12 @@ function TestPage() {
   }
 
   const question = questions[current]!;
-  const answeredCount = Object.keys(answers).length;
+  const isSubjective = question.question_type === "subjective";
+  const answeredCount = questions.filter((qq) =>
+    qq.question_type === "subjective"
+      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
+      : Boolean(answers[qq.id]),
+  ).length;
   const lowTime = remaining <= 30;
 
   return (
@@ -326,29 +400,64 @@ function TestPage() {
       </div>
 
       <div className="surface-card mt-4 p-5">
-        <p className="font-semibold">{question.question_text}</p>
-
-        <div className="mt-4 space-y-2">
-          {LETTERS.map((l) => {
-            const selected = answers[question.id] === l;
-            return (
-              <button
-                key={l}
-                onClick={() => setAnswers((a) => ({ ...a, [question.id]: l }))}
-                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
-                  selected
-                    ? "border-primary bg-primary-soft font-semibold text-primary"
-                    : "border-border hover:bg-accent"
-                }`}
-              >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
-                  {l}
-                </span>
-                <span className="min-w-0">{optionText(question, l)}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+            {isSubjective ? "Long answer" : "Multiple choice"}
+          </span>
+          <span>
+            {question.marks} mark{question.marks > 1 ? "s" : ""}
+          </span>
+          <span>· {questionTime[question.id] ?? 0}s on this question</span>
         </div>
+        <p className="mt-2 font-semibold">{question.question_text}</p>
+
+        {isSubjective ? (
+          <div className="mt-4">
+            <label
+              htmlFor={`answer-${question.id}`}
+              className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+            >
+              Write your answer here
+            </label>
+            <Textarea
+              id={`answer-${question.id}`}
+              rows={9}
+              maxLength={5000}
+              className="mt-2 min-h-[200px] text-base"
+              placeholder="Type your full answer here…"
+              value={textAnswers[question.id] ?? ""}
+              onChange={(e) =>
+                setTextAnswers((t) => ({ ...t, [question.id]: e.target.value }))
+              }
+            />
+            <p className="mt-1 text-right text-xs text-muted-foreground">
+              {(textAnswers[question.id] ?? "").length}/5000 characters
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {LETTERS.map((l) => {
+              const selected = answers[question.id] === l;
+              return (
+                <button
+                  key={l}
+                  onClick={() => setAnswers((a) => ({ ...a, [question.id]: l }))}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+                    selected
+                      ? "border-primary bg-primary-soft font-semibold text-primary"
+                      : "border-border hover:bg-accent"
+                  }`}
+                >
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
+                    {l}
+                  </span>
+                  <span className="min-w-0">{optionText(question, l)}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button
@@ -400,7 +509,10 @@ function TestPage() {
             className={`h-8 w-8 rounded-lg text-xs font-bold ${
               i === current
                 ? "bg-primary text-primary-foreground"
-                : answers[qq.id]
+                : (qq.question_type === "subjective"
+                      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
+                      : Boolean(answers[qq.id]))
+
                   ? "bg-success text-success-foreground"
                   : "bg-muted text-muted-foreground"
             }`}

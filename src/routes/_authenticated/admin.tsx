@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QuestionReview } from "@/components/admin/QuestionReview";
+import { ManualGrading } from "@/components/admin/ManualGrading";
+import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytics";
+
 import {
   Select,
   SelectContent,
@@ -90,9 +94,18 @@ function Admin() {
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
-        <TabsList className="w-full">
+        <TabsList className="flex w-full flex-wrap">
           <TabsTrigger value="content" className="flex-1">
             Content
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex-1">
+            Review &amp; Publish
+          </TabsTrigger>
+          <TabsTrigger value="grading" className="flex-1">
+            Manual Grading
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-1">
+            Analytics
           </TabsTrigger>
           <TabsTrigger value="students" className="flex-1">
             Students
@@ -104,6 +117,15 @@ function Admin() {
         <TabsContent value="content" className="mt-4">
           <ContentManager />
         </TabsContent>
+        <TabsContent value="review" className="mt-4">
+          <QuestionReview />
+        </TabsContent>
+        <TabsContent value="grading" className="mt-4">
+          <ManualGrading />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-4">
+          <TestAnalytics />
+        </TabsContent>
         <TabsContent value="students" className="mt-4">
           <StudentMonitor />
         </TabsContent>
@@ -111,6 +133,7 @@ function Admin() {
           <Reports />
         </TabsContent>
       </Tabs>
+
     </main>
   );
 }
@@ -129,6 +152,10 @@ function ContentManager() {
   const [correct, setCorrect] = useState("A");
   const [hint, setHint] = useState("");
   const [explanation, setExplanation] = useState("");
+  const [qType, setQType] = useState<"mcq" | "subjective">("mcq");
+  const [qMarks, setQMarks] = useState("1");
+  const [modelAnswer, setModelAnswer] = useState("");
+
 
   const tree = useQuery({
     queryKey: ["admin-tree"],
@@ -327,53 +354,96 @@ function ContentManager() {
 
       <section className="surface-card p-5">
         <h2 className="font-bold">Add question</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          New questions are saved as <strong>drafts</strong> — verify them in the “Review &amp;
+          Publish” tab to make them live.
+        </p>
         <div className="mt-3 space-y-2">
-          <Select value={qTest} onValueChange={setQTest}>
-            <SelectTrigger>
-              <SelectValue placeholder="Test" />
-            </SelectTrigger>
-            <SelectContent>
-              {tests.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid gap-2 sm:grid-cols-[1fr_180px_120px]">
+            <Select value={qTest} onValueChange={setQTest}>
+              <SelectTrigger>
+                <SelectValue placeholder="Test" />
+              </SelectTrigger>
+              <SelectContent>
+                {tests.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={qType} onValueChange={(v) => setQType(v as "mcq" | "subjective")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mcq">MCQ (options)</SelectItem>
+                <SelectItem value="subjective">Subjective (long answer)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={qMarks}
+              onChange={(e) => setQMarks(e.target.value)}
+              placeholder="Marks"
+            />
+          </div>
           <Textarea
             placeholder="Question text"
             value={qText}
             onChange={(e) => setQText(e.target.value)}
           />
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(["A", "B", "C", "D"] as const).map((l) => (
-              <Input
-                key={l}
-                placeholder={`Option ${l}`}
-                value={opts[l]}
-                onChange={(e) => setOpts((o) => ({ ...o, [l]: e.target.value }))}
-              />
-            ))}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
-            <Select value={correct} onValueChange={setCorrect}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
+
+          {qType === "mcq" ? (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2">
                 {(["A", "B", "C", "D"] as const).map((l) => (
-                  <SelectItem key={l} value={l}>
-                    Correct: {l}
-                  </SelectItem>
+                  <Input
+                    key={l}
+                    placeholder={`Option ${l}`}
+                    value={opts[l]}
+                    onChange={(e) => setOpts((o) => ({ ...o, [l]: e.target.value }))}
+                  />
                 ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="💡 VIP hint (optional)"
-              value={hint}
-              onChange={(e) => setHint(e.target.value)}
-            />
-          </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
+                <Select value={correct} onValueChange={setCorrect}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["A", "B", "C", "D"] as const).map((l) => (
+                      <SelectItem key={l} value={l}>
+                        Correct: {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="💡 VIP hint (optional)"
+                  value={hint}
+                  onChange={(e) => setHint(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <Textarea
+                placeholder="Model answer — shown to you while grading"
+                value={modelAnswer}
+                onChange={(e) => setModelAnswer(e.target.value)}
+                rows={4}
+              />
+              <Input
+                placeholder="💡 VIP hint (optional)"
+                value={hint}
+                onChange={(e) => setHint(e.target.value)}
+              />
+            </>
+          )}
+
           <Textarea
             placeholder="Explanation (optional)"
             value={explanation}
@@ -381,8 +451,16 @@ function ContentManager() {
           />
           <Button
             onClick={async () => {
-              if (!qTest || !qText.trim() || !opts.A.trim() || !opts.B.trim()) {
-                toast.error("Test, question and at least options A and B are required");
+              if (!qTest || !qText.trim()) {
+                toast.error("Choose a test and enter the question text");
+                return;
+              }
+              if (qType === "mcq" && (!opts.A.trim() || !opts.B.trim())) {
+                toast.error("MCQ questions need at least options A and B");
+                return;
+              }
+              if (qType === "subjective" && !modelAnswer.trim()) {
+                toast.error("Add a model answer so you can grade it later");
                 return;
               }
               const count = tests.find((t) => t.id === qTest)?.questions?.length ?? 0;
@@ -390,35 +468,43 @@ function ContentManager() {
                 supabase.from("questions").insert({
                   test_id: qTest,
                   question_text: qText.trim(),
-                  option_a: opts.A.trim(),
-                  option_b: opts.B.trim(),
-                  option_c: opts.C.trim(),
-                  option_d: opts.D.trim(),
-                  correct_option: correct,
+                  question_type: qType,
+                  marks: Math.max(1, Number(qMarks) || 1),
+                  status: "draft",
+                  model_answer: qType === "subjective" ? modelAnswer.trim() : null,
+                  option_a: qType === "mcq" ? opts.A.trim() : "",
+                  option_b: qType === "mcq" ? opts.B.trim() : "",
+                  option_c: qType === "mcq" ? opts.C.trim() : "",
+                  option_d: qType === "mcq" ? opts.D.trim() : "",
+                  correct_option: qType === "mcq" ? correct : "",
                   hint: hint.trim() || null,
                   explanation: explanation.trim() || null,
                   position: count + 1,
                 }),
-                "Question added",
+                "Saved as draft — publish it from the Review & Publish tab",
               );
               if (ok) {
                 setQText("");
                 setOpts({ A: "", B: "", C: "", D: "" });
                 setHint("");
                 setExplanation("");
+                setModelAnswer("");
               }
             }}
           >
-            <Plus className="h-4 w-4" /> Add question
+            <Plus className="h-4 w-4" /> Save as draft
           </Button>
         </div>
       </section>
+
     </div>
   );
 }
 
 function StudentMonitor() {
   const [search, setSearch] = useState("");
+  const [openAttempt, setOpenAttempt] = useState<string | null>(null);
+
 
   const students = useQuery({
     queryKey: ["admin-students"],
@@ -479,16 +565,23 @@ function StudentMonitor() {
                 Anti-cheating flags: <strong className="text-destructive">{flags}</strong>
               </p>
               {mine.length > 0 && (
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
                   {mine.slice(0, 5).map((a) => (
-                    <li key={a.id} className="truncate">
-                      {new Date(a.created_at).toLocaleString()} · {a.tests?.title} ·{" "}
-                      {a.correct_count}/{a.total_questions} · {a.tab_switch_count} switches ·{" "}
-                      {Math.round(a.time_spent_seconds / 60)}m
+                    <li key={a.id}>
+                      <button
+                        className="w-full truncate rounded-md px-1 py-0.5 text-left hover:bg-accent"
+                        onClick={() => setOpenAttempt((o) => (o === a.id ? null : a.id))}
+                      >
+                        {new Date(a.created_at).toLocaleString()} · {a.tests?.title} ·{" "}
+                        {a.correct_count}/{a.total_questions} · {a.tab_switch_count} switches ·{" "}
+                        {Math.round(a.time_spent_seconds / 60)}m
+                      </button>
+                      {openAttempt === a.id && <AttemptBreakdown attemptId={a.id} />}
                     </li>
                   ))}
                 </ul>
               )}
+
             </div>
           );
         })}
