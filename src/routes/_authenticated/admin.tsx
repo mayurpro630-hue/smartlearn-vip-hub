@@ -503,6 +503,8 @@ function ContentManager() {
 
 function StudentMonitor() {
   const [search, setSearch] = useState("");
+  const [openAttempt, setOpenAttempt] = useState<string | null>(null);
+
 
   const students = useQuery({
     queryKey: ["admin-students"],
