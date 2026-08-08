@@ -90,9 +90,18 @@ function Admin() {
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
-        <TabsList className="w-full">
+        <TabsList className="flex w-full flex-wrap">
           <TabsTrigger value="content" className="flex-1">
             Content
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex-1">
+            Review &amp; Publish
+          </TabsTrigger>
+          <TabsTrigger value="grading" className="flex-1">
+            Manual Grading
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-1">
+            Analytics
           </TabsTrigger>
           <TabsTrigger value="students" className="flex-1">
             Students
@@ -104,6 +113,15 @@ function Admin() {
         <TabsContent value="content" className="mt-4">
           <ContentManager />
         </TabsContent>
+        <TabsContent value="review" className="mt-4">
+          <QuestionReview />
+        </TabsContent>
+        <TabsContent value="grading" className="mt-4">
+          <ManualGrading />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-4">
+          <TestAnalytics />
+        </TabsContent>
         <TabsContent value="students" className="mt-4">
           <StudentMonitor />
         </TabsContent>
@@ -111,6 +129,7 @@ function Admin() {
           <Reports />
         </TabsContent>
       </Tabs>
+
     </main>
   );
 }
