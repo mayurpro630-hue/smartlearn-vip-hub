@@ -47,6 +47,8 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Question = {
   id: string;
   question_text: string;
+  question_type: string;
+  marks: number;
   option_a: string;
   option_b: string;
   option_c: string;
@@ -68,13 +70,17 @@ function TestPage() {
   const queryClient = useQueryClient();
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
+  const [questionTime, setQuestionTime] = useState<Record<string, number>>({});
   const [current, setCurrent] = useState(0);
   const [switches, setSwitches] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ correct: number; total: number } | null>(null);
+  const [result, setResult] = useState<{ correct: number; total: number; pending: number } | null>(
+    null,
+  );
   const submittedRef = useRef(false);
 
   const q = useQuery({
@@ -83,7 +89,7 @@ function TestPage() {
       const { data, error } = await supabase
         .from("tests")
         .select(
-          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position)",
+          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, question_type, marks, status, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position)",
         )
         .eq("id", testId)
         .maybeSingle();
@@ -93,10 +99,14 @@ function TestPage() {
   });
 
   const questions = useMemo(
-    () => [...((q.data?.questions ?? []) as Question[])].sort((a, b) => a.position - b.position),
+    () =>
+      [...((q.data?.questions ?? []) as (Question & { status: string })[])]
+        .filter((qq) => qq.status === "published")
+        .sort((a, b) => a.position - b.position),
     [q.data],
   );
   const duration = (q.data?.duration_minutes ?? 10) * 60;
+
   const remaining = Math.max(0, duration - elapsed);
 
   // Timer
