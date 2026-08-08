@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QuestionReview } from "@/components/admin/QuestionReview";
+import { ManualGrading } from "@/components/admin/ManualGrading";
+import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytics";
+
 import {
   Select,
   SelectContent,
