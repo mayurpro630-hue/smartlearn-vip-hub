@@ -563,16 +563,23 @@ function StudentMonitor() {
                 Anti-cheating flags: <strong className="text-destructive">{flags}</strong>
               </p>
               {mine.length > 0 && (
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
                   {mine.slice(0, 5).map((a) => (
-                    <li key={a.id} className="truncate">
-                      {new Date(a.created_at).toLocaleString()} · {a.tests?.title} ·{" "}
-                      {a.correct_count}/{a.total_questions} · {a.tab_switch_count} switches ·{" "}
-                      {Math.round(a.time_spent_seconds / 60)}m
+                    <li key={a.id}>
+                      <button
+                        className="w-full truncate rounded-md px-1 py-0.5 text-left hover:bg-accent"
+                        onClick={() => setOpenAttempt((o) => (o === a.id ? null : a.id))}
+                      >
+                        {new Date(a.created_at).toLocaleString()} · {a.tests?.title} ·{" "}
+                        {a.correct_count}/{a.total_questions} · {a.tab_switch_count} switches ·{" "}
+                        {Math.round(a.time_spent_seconds / 60)}m
+                      </button>
+                      {openAttempt === a.id && <AttemptBreakdown attemptId={a.id} />}
                     </li>
                   ))}
                 </ul>
               )}
+
             </div>
           );
         })}
