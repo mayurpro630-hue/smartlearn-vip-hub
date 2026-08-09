@@ -201,6 +201,7 @@ export type Database = {
           total_score: number
           username: string
           vip_since: string | null
+          vip_tier: string
         }
         Insert: {
           created_at?: string
@@ -211,6 +212,7 @@ export type Database = {
           total_score?: number
           username: string
           vip_since?: string | null
+          vip_tier?: string
         }
         Update: {
           created_at?: string
@@ -221,6 +223,7 @@ export type Database = {
           total_score?: number
           username?: string
           vip_since?: string | null
+          vip_tier?: string
         }
         Relationships: []
       }
@@ -324,6 +327,7 @@ export type Database = {
           correct_count: number
           created_at: string
           id: string
+          is_practice: boolean
           score: number
           tab_switch_count: number
           test_id: string
@@ -335,6 +339,7 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          is_practice?: boolean
           score?: number
           tab_switch_count?: number
           test_id: string
@@ -346,6 +351,7 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          is_practice?: boolean
           score?: number
           tab_switch_count?: number
           test_id?: string
@@ -419,11 +425,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_tiers: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          label: string
+          max_flags: number
+          min_score: number
+          min_tests: number
+          rank: number
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          label: string
+          max_flags?: number
+          min_score?: number
+          min_tests?: number
+          rank?: number
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          label?: string
+          max_flags?: number
+          min_score?: number
+          min_tests?: number
+          rank?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      evaluate_vip_tier: { Args: { _user_id: string }; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

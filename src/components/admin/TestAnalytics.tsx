@@ -19,6 +19,7 @@ export function TestAnalytics() {
         .select(
           "id, test_id, user_id, correct_count, total_questions, time_spent_seconds, tab_switch_count, tests(title, chapters(name))",
         )
+        .eq("is_practice", false)
         .limit(1000);
       if (error) throw error;
       return data ?? [];

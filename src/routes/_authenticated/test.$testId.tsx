@@ -78,7 +78,12 @@ function TestPage() {
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ correct: number; total: number; pending: number } | null>(
+  const [result, setResult] = useState<{
+    correct: number;
+    total: number;
+    pending: number;
+    practice: boolean;
+  } | null>(
     null,
   );
   const submittedRef = useRef(false);
@@ -97,6 +102,21 @@ function TestPage() {
       return data;
     },
   });
+
+  const priorAttempts = useQuery({
+    queryKey: ["prior-attempts", testId, user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("test_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("test_id", testId)
+        .eq("is_practice", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const practiceMode = (priorAttempts.data ?? 0) > 0;
 
   const questions = useMemo(
     () =>
@@ -189,7 +209,7 @@ function TestPage() {
         time_spent_seconds: elapsed,
         tab_switch_count: switches,
       })
-      .select("id")
+      .select("id, is_practice")
       .single();
 
     if (error || !attempt) {
@@ -213,11 +233,17 @@ function TestPage() {
         );
     }
 
-    setResult({ correct, total: mcqs.length, pending });
+    setResult({ correct, total: mcqs.length, pending, practice: attempt.is_practice });
     setSubmitted(true);
     setSaving(false);
     queryClient.invalidateQueries();
-    toast.success(auto ? "Time up — test submitted" : "Test submitted");
+    toast.success(
+      attempt.is_practice
+        ? "Practice attempt saved — your official score is unchanged"
+        : auto
+          ? "Time up — test submitted"
+          : "Test submitted",
+    );
   }
 
 
@@ -255,6 +281,9 @@ function TestPage() {
           </p>
           <p className="mt-2 text-sm opacity-90">
             {percent}% · {Math.floor(elapsed / 60)}m {elapsed % 60}s · {switches} focus warnings
+          </p>
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/20 px-3 py-1 text-xs font-bold">
+            {result.practice ? "Practice mode — official score unchanged" : "Official attempt recorded"}
           </p>
           {result.pending > 0 && (
             <p className="mt-2 text-sm opacity-90">
@@ -388,6 +417,14 @@ function TestPage() {
           {String(remaining % 60).padStart(2, "0")}
         </div>
       </div>
+
+      {practiceMode && (
+        <div className="mt-4 rounded-2xl border border-border bg-muted/60 p-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">Practice mode.</strong> You already have an official
+          attempt for this test — this retake will not change your official score, leaderboard rank or
+          VIP badge.
+        </div>
+      )}
 
       <Progress value={(answeredCount / questions.length) * 100} className="mt-4" />
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">

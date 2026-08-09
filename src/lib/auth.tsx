@@ -7,6 +7,7 @@ export type Profile = {
   id: string;
   username: string;
   is_vip: boolean;
+  vip_tier: string | null;
   streak: number;
   total_score: number;
   tests_taken: number;
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, is_vip, streak, total_score, tests_taken, vip_since")
+        .select("id, username, is_vip, vip_tier, streak, total_score, tests_taken, vip_since")
         .eq("id", userId!)
         .maybeSingle();
       if (error) throw error;
