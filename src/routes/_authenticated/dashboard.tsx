@@ -4,6 +4,7 @@ import { Crown, Flame, Target, BookOpen, ClipboardList, ShieldAlert } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { VipBadge, VipTierHint } from "@/components/VipBadge";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -30,7 +31,7 @@ function Dashboard() {
       const { data, error } = await supabase
         .from("test_attempts")
         .select(
-          "id, score, total_questions, correct_count, time_spent_seconds, tab_switch_count, created_at, tests(id, title, chapters(id, name, subjects(id, name)))",
+          "id, score, total_questions, correct_count, time_spent_seconds, tab_switch_count, is_practice, created_at, tests(id, title, chapters(id, name, subjects(id, name)))",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -61,6 +62,8 @@ function Dashboard() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Your progress at a glance.</p>
         </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <VipBadge tier={profile?.vip_tier} className="px-3 py-1.5 text-sm" />
         {profile?.is_vip ? (
           <span className="gold-gradient inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold shadow-[var(--shadow-gold)]">
             <Crown className="h-4 w-4" /> VIP Active
@@ -70,6 +73,10 @@ function Dashboard() {
             <Crown className="h-4 w-4" /> VIP Inactive
           </span>
         )}
+        </div>
+      </div>
+      <div className="mt-2">
+        <VipTierHint />
       </div>
 
       {!profile?.is_vip && (
@@ -122,7 +129,8 @@ function Dashboard() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {new Date(r.created_at).toLocaleString()} · {Math.round(r.time_spent_seconds / 60)}m{" "}
-                {r.time_spent_seconds % 60}s · {r.tab_switch_count} switches
+                {r.time_spent_seconds % 60}s · {r.tab_switch_count} switches ·{" "}
+                {r.is_practice ? "Practice" : "Official"}
               </p>
             </div>
             <p className="shrink-0 text-right text-lg font-extrabold">

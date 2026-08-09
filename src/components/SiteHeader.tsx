@@ -12,7 +12,7 @@ function VipTicker() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, total_score, is_vip")
+        .select("username, total_score, is_vip, vip_tier")
         .order("total_score", { ascending: false })
         .limit(1);
       if (error) throw error;
