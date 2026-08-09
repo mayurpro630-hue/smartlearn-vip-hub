@@ -7,6 +7,7 @@ export type Profile = {
   id: string;
   username: string;
   is_vip: boolean;
+  vip_tier: string | null;
   streak: number;
   total_score: number;
   tests_taken: number;
