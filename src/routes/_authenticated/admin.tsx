@@ -94,25 +94,26 @@ function Admin() {
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
-        <TabsList className="flex w-full flex-wrap">
-          <TabsTrigger value="content" className="flex-1">
-            Content
-          </TabsTrigger>
-          <TabsTrigger value="review" className="flex-1">
-            Review &amp; Publish
-          </TabsTrigger>
-          <TabsTrigger value="grading" className="flex-1">
-            Manual Grading
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-1">
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="students" className="flex-1">
-            Students
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex-1">
-            Reports
-          </TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4 lg:grid-cols-7">
+          {(
+            [
+              ["content", "Content"],
+              ["review", "Review & Publish"],
+              ["grading", "Manual Grading"],
+              ["analytics", "Analytics"],
+              ["students", "Students"],
+              ["vip", "VIP Settings"],
+              ["reports", "Reports"],
+            ] as const
+          ).map(([value, label]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="w-full min-w-0 truncate px-2 py-2 text-xs sm:text-sm"
+            >
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="content" className="mt-4">
           <ContentManager />
@@ -128,6 +129,9 @@ function Admin() {
         </TabsContent>
         <TabsContent value="students" className="mt-4">
           <StudentMonitor />
+        </TabsContent>
+        <TabsContent value="vip" className="mt-4">
+          <VipSettings />
         </TabsContent>
         <TabsContent value="reports" className="mt-4">
           <Reports />
