@@ -25,9 +25,10 @@ export function ManualGrading() {
       const { data, error } = await supabase
         .from("attempt_answers")
         .select(
-          "id, user_id, answer_text, awarded_marks, graded, time_spent_seconds, created_at, questions!inner(question_text, model_answer, marks, question_type)",
+          "id, user_id, answer_text, awarded_marks, graded, time_spent_seconds, created_at, questions!inner(question_text, model_answer, marks, question_type), test_attempts!inner(is_practice)",
         )
         .eq("questions.question_type", "subjective")
+        .eq("test_attempts.is_practice", false)
         .eq("graded", filter === "graded")
         .order("created_at", { ascending: false })
         .limit(200);
