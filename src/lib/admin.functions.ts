@@ -21,3 +21,24 @@ export const claimAdmin = createServerFn({ method: "POST" })
     if (error) return { ok: false as const, error: "Could not grant admin access" };
     return { ok: true as const };
   });
+
+export const recomputeVipTiers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) return { ok: false as const, error: "Admins only" };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profiles, error } = await supabaseAdmin.from("profiles").select("id");
+    if (error) return { ok: false as const, error: "Could not load students" };
+
+    let updated = 0;
+    for (const p of profiles ?? []) {
+      const { error: rpcError } = await supabaseAdmin.rpc("evaluate_vip_tier", { _user_id: p.id });
+      if (!rpcError) updated += 1;
+    }
+    return { ok: true as const, updated };
+  });
