@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuestionReview } from "@/components/admin/QuestionReview";
 import { ManualGrading } from "@/components/admin/ManualGrading";
 import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytics";
+import { VipSettings } from "@/components/admin/VipSettings";
+import { VipBadge } from "@/components/VipBadge";
 
 import {
   Select,
@@ -515,7 +517,7 @@ function StudentMonitor() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, is_vip, streak, total_score, tests_taken")
+        .select("id, username, is_vip, vip_tier, streak, total_score, tests_taken")
         .order("total_score", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -528,7 +530,7 @@ function StudentMonitor() {
       const { data, error } = await supabase
         .from("test_attempts")
         .select(
-          "id, user_id, correct_count, total_questions, tab_switch_count, time_spent_seconds, created_at, tests(title)",
+          "id, user_id, correct_count, total_questions, tab_switch_count, time_spent_seconds, is_practice, created_at, tests(title)",
         )
         .order("created_at", { ascending: false })
         .limit(200);
@@ -545,6 +547,7 @@ function StudentMonitor() {
   return (
     <div className="space-y-4">
       <Input
+        className="w-full"
         placeholder="Search students by username…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -557,10 +560,13 @@ function StudentMonitor() {
           return (
             <div key={s.id} className="p-4">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <p className="min-w-0 truncate font-semibold">
-                  {s.username}
-                  {s.is_vip && <Crown className="ml-1.5 inline h-4 w-4 text-gold" />}
-                </p>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="min-w-0 truncate font-semibold">
+                    {s.username}
+                    {s.is_vip && <Crown className="ml-1.5 inline h-4 w-4 text-gold" />}
+                  </p>
+                  <VipBadge tier={s.vip_tier} />
+                </div>
                 <p className="shrink-0 text-sm text-muted-foreground">
                   {s.total_score} marks · {s.tests_taken} tests · streak {s.streak}
                 </p>
@@ -579,6 +585,7 @@ function StudentMonitor() {
                         {new Date(a.created_at).toLocaleString()} · {a.tests?.title} ·{" "}
                         {a.correct_count}/{a.total_questions} · {a.tab_switch_count} switches ·{" "}
                         {Math.round(a.time_spent_seconds / 60)}m
+                        {a.is_practice ? " · Practice" : " · Official"}
                       </button>
                       {openAttempt === a.id && <AttemptBreakdown attemptId={a.id} />}
                     </li>
