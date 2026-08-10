@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  BookOpen,
   Bookmark,
   Check,
   Clock,
@@ -57,7 +58,13 @@ type Question = {
   explanation: string | null;
   hint: string | null;
   position: number;
+  passage_text: string | null;
+  passage_id: string | null;
 };
+
+type Item =
+  | { kind: "single"; question: Question }
+  | { kind: "passage"; parent: Question; children: Question[] };
 
 function optionText(q: Question, letter: string) {
   return { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d }[letter] ?? "";
@@ -94,7 +101,7 @@ function TestPage() {
       const { data, error } = await supabase
         .from("tests")
         .select(
-          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, question_type, marks, status, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position)",
+          "id, title, duration_minutes, chapter_id, chapters(id, name, subjects(id, name)), questions(id, question_text, question_type, marks, status, option_a, option_b, option_c, option_d, correct_option, explanation, hint, position, passage_text, passage_id)",
         )
         .eq("id", testId)
         .maybeSingle();
@@ -118,13 +125,40 @@ function TestPage() {
   });
   const practiceMode = (priorAttempts.data ?? 0) > 0;
 
-  const questions = useMemo(
+  const published = useMemo(
     () =>
       [...((q.data?.questions ?? []) as (Question & { status: string })[])]
         .filter((qq) => qq.status === "published")
         .sort((a, b) => a.position - b.position),
     [q.data],
   );
+
+  // Items are what the student pages through: a standalone question, or a
+  // reading passage together with all of its sub-questions.
+  const items = useMemo<Item[]>(() => {
+    const list: Item[] = [];
+    for (const qq of published) {
+      if (qq.passage_id) continue;
+      if (qq.question_type === "passage") {
+        list.push({
+          kind: "passage",
+          parent: qq,
+          children: published.filter((c) => c.passage_id === qq.id),
+        });
+      } else {
+        list.push({ kind: "single", question: qq });
+      }
+    }
+    return list.filter((it) => it.kind === "single" || it.children.length > 0);
+  }, [published]);
+
+  // Everything that is actually answered/graded (passage rows themselves aren't).
+  const answerable = useMemo(
+    () =>
+      items.flatMap((it) => (it.kind === "single" ? [it.question] : it.children)),
+    [items],
+  );
+
   const duration = (q.data?.duration_minutes ?? 10) * 60;
 
   const remaining = Math.max(0, duration - elapsed);
@@ -136,17 +170,27 @@ function TestPage() {
     return () => clearInterval(id);
   }, [submitted]);
 
-  // Per-question time tracking
-  const currentId = questions[current]?.id;
+  // Per-question time tracking (a passage's time is credited to each sub-question)
+  const item = items[current];
+  const trackedIds = useMemo(() => {
+    if (!item) return [] as string[];
+    return item.kind === "single" ? [item.question.id] : item.children.map((c) => c.id);
+  }, [item]);
+  const trackedKey = trackedIds.join(",");
   useEffect(() => {
-    if (submitted || !currentId) return;
+    if (submitted || !trackedKey) return;
+    const ids = trackedKey.split(",");
     const id = setInterval(
-      () => setQuestionTime((t) => ({ ...t, [currentId]: (t[currentId] ?? 0) + 1 })),
+      () =>
+        setQuestionTime((t) => {
+          const next = { ...t };
+          for (const qid of ids) next[qid] = (next[qid] ?? 0) + 1;
+          return next;
+        }),
       1000,
     );
     return () => clearInterval(id);
-  }, [submitted, currentId]);
-
+  }, [submitted, trackedKey]);
 
   // Proctoring: tab switch / minimise / back button
   useEffect(() => {
@@ -177,25 +221,31 @@ function TestPage() {
     };
   }, [submitted, testId]);
 
+  function isAnswered(qq: Question) {
+    return qq.question_type === "mcq"
+      ? Boolean(answers[qq.id])
+      : (textAnswers[qq.id]?.trim().length ?? 0) > 0;
+  }
+
   async function submit(auto = false) {
-    if (submittedRef.current || !user || questions.length === 0) return;
+    if (submittedRef.current || !user || answerable.length === 0) return;
     submittedRef.current = true;
     setSaving(true);
 
-    const graded = questions.map((qq) => {
-      const subjective = qq.question_type === "subjective";
+    const graded = answerable.map((qq) => {
+      const written = qq.question_type !== "mcq";
       return {
         question_id: qq.id,
-        selected_option: subjective ? null : (answers[qq.id] ?? null),
-        answer_text: subjective ? (textAnswers[qq.id]?.trim() || null) : null,
-        is_correct: !subjective && answers[qq.id] === qq.correct_option,
-        graded: !subjective,
-        awarded_marks: !subjective && answers[qq.id] === qq.correct_option ? qq.marks : 0,
+        selected_option: written ? null : (answers[qq.id] ?? null),
+        answer_text: written ? (textAnswers[qq.id]?.trim() || null) : null,
+        is_correct: !written && answers[qq.id] === qq.correct_option,
+        graded: !written,
+        awarded_marks: !written && answers[qq.id] === qq.correct_option ? qq.marks : 0,
         time_spent_seconds: questionTime[qq.id] ?? 0,
       };
     });
-    const mcqs = questions.filter((qq) => qq.question_type !== "subjective");
-    const pending = questions.length - mcqs.length;
+    const mcqs = answerable.filter((qq) => qq.question_type === "mcq");
+    const pending = answerable.length - mcqs.length;
     const correct = graded.filter((g) => g.is_correct).length;
 
     const { data: attempt, error } = await supabase
@@ -204,7 +254,7 @@ function TestPage() {
         user_id: user.id,
         test_id: testId,
         score: correct,
-        total_questions: questions.length,
+        total_questions: answerable.length,
         correct_count: correct,
         time_spent_seconds: elapsed,
         tab_switch_count: switches,
@@ -246,18 +296,17 @@ function TestPage() {
     );
   }
 
-
   useEffect(() => {
-    if (!submitted && remaining === 0 && questions.length > 0 && elapsed > 0) {
+    if (!submitted && remaining === 0 && answerable.length > 0 && elapsed > 0) {
       void submit(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, questions.length]);
+  }, [remaining, answerable.length]);
 
   if (q.isLoading) {
     return <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">Loading test…</main>;
   }
-  if (!q.data || questions.length === 0) {
+  if (!q.data || answerable.length === 0) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
         <p className="text-sm text-muted-foreground">This test has no questions yet.</p>
@@ -271,6 +320,8 @@ function TestPage() {
   if (submitted && result) {
     const percent = result.total > 0 ? Math.round((result.correct / result.total) * 100) : 0;
     const shareText = `I scored ${result.correct}/${result.total} (${percent}%) in "${q.data.chapters?.name} — ${q.data.title}" on Mayur Education! 🎓 Can you beat me? ${typeof window !== "undefined" ? window.location.origin : ""}`;
+
+    let reviewIndex = 0;
 
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
@@ -309,74 +360,45 @@ function TestPage() {
 
         <h2 className="mt-8 text-xl font-bold">Answer review</h2>
         <div className="mt-3 space-y-3">
-          {questions.map((qq, i) => {
-            const subjective = qq.question_type === "subjective";
-            const chosen = answers[qq.id];
-            const ok = !subjective && chosen === qq.correct_option;
-            return (
-              <div key={qq.id} className="surface-card p-4">
-                <div className="flex items-start gap-2">
-                  <span
-                    className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
-                      subjective
-                        ? "bg-muted text-muted-foreground"
-                        : ok
-                          ? "bg-success text-success-foreground"
-                          : "bg-destructive text-destructive-foreground"
-                    }`}
-                  >
-                    {subjective ? (
-                      <Clock className="h-3.5 w-3.5" />
-                    ) : ok ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <X className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                  <p className="min-w-0 font-semibold">
-                    {i + 1}. {qq.question_text}
+          {items.map((it) => {
+            if (it.kind === "passage") {
+              return (
+                <div key={it.parent.id} className="surface-card p-4">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+                    <BookOpen className="h-3.5 w-3.5" /> Reading passage
                   </p>
+                  <p className="mt-1 font-semibold">{it.parent.question_text}</p>
+                  <div className="mt-2 max-h-56 overflow-y-auto rounded-xl bg-muted p-3 text-sm whitespace-pre-wrap">
+                    {it.parent.passage_text}
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {it.children.map((child) => {
+                      reviewIndex += 1;
+                      return (
+                        <ReviewRow
+                          key={child.id}
+                          index={reviewIndex}
+                          question={child}
+                          chosen={answers[child.id]}
+                          text={textAnswers[child.id]}
+                          seconds={questionTime[child.id] ?? 0}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-                {subjective ? (
-                  <>
-                    <p className="mt-2 text-sm whitespace-pre-wrap">
-                      <span className="text-muted-foreground">Your answer: </span>
-                      {textAnswers[qq.id]?.trim() || "Not answered"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Awaiting manual grading · worth {qq.marks} mark{qq.marks > 1 ? "s" : ""}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-2 text-sm">
-                      <span className="text-muted-foreground">Your answer: </span>
-                      {chosen ? `${chosen}. ${optionText(qq, chosen)}` : "Not answered"}
-                    </p>
-                    {!ok && (
-                      <p className="text-sm">
-                        <span className="text-muted-foreground">Correct answer: </span>
-                        <span className="font-semibold text-success">
-                          {qq.correct_option}. {optionText(qq, qq.correct_option)}
-                        </span>
-                      </p>
-                    )}
-                  </>
-                )}
-                {qq.explanation && (
-                  <p className="mt-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                    <strong className="text-foreground">Explanation: </strong>
-                    {qq.explanation}
-                  </p>
-                )}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Time on this question: {questionTime[qq.id] ?? 0}s
-                </p>
-                {!subjective && !ok && (
-                  <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Bookmark className="h-3.5 w-3.5" /> Saved to your Revision list
-                  </p>
-                )}
+              );
+            }
+            reviewIndex += 1;
+            return (
+              <div key={it.question.id} className="surface-card p-4">
+                <ReviewRow
+                  index={reviewIndex}
+                  question={it.question}
+                  chosen={answers[it.question.id]}
+                  text={textAnswers[it.question.id]}
+                  seconds={questionTime[it.question.id] ?? 0}
+                />
               </div>
             );
           })}
@@ -391,14 +413,13 @@ function TestPage() {
     );
   }
 
-  const question = questions[current]!;
-  const isSubjective = question.question_type === "subjective";
-  const answeredCount = questions.filter((qq) =>
-    qq.question_type === "subjective"
-      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
-      : Boolean(answers[qq.id]),
-  ).length;
+  const activeItem = items[current]!;
+  const answeredCount = answerable.filter(isAnswered).length;
   const lowTime = remaining <= 30;
+  const firstIndexOfItem =
+    answerable.findIndex(
+      (a) => a.id === (activeItem.kind === "single" ? activeItem.question.id : activeItem.children[0]?.id),
+    ) + 1;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -426,100 +447,124 @@ function TestPage() {
         </div>
       )}
 
-      <Progress value={(answeredCount / questions.length) * 100} className="mt-4" />
+      <Progress value={(answeredCount / answerable.length) * 100} className="mt-4" />
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          Question {current + 1} of {questions.length}
+          {activeItem.kind === "passage"
+            ? `Passage set · questions ${firstIndexOfItem}–${firstIndexOfItem + activeItem.children.length - 1} of ${answerable.length}`
+            : `Question ${firstIndexOfItem} of ${answerable.length}`}
         </span>
         <span className="inline-flex items-center gap-1">
           <AlertTriangle className="h-3.5 w-3.5" /> {switches} focus warnings
         </span>
       </div>
 
-      <div className="surface-card mt-4 p-5">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
-            {isSubjective ? "Long answer" : "Multiple choice"}
-          </span>
-          <span>
-            {question.marks} mark{question.marks > 1 ? "s" : ""}
-          </span>
-          <span>· {questionTime[question.id] ?? 0}s on this question</span>
-        </div>
-        <p className="mt-2 font-semibold">{question.question_text}</p>
-
-        {isSubjective ? (
-          <div className="mt-4">
-            <label
-              htmlFor={`answer-${question.id}`}
-              className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
-            >
-              Write your answer here
-            </label>
-            <Textarea
-              id={`answer-${question.id}`}
-              rows={9}
-              maxLength={5000}
-              className="mt-2 min-h-[200px] text-base"
-              placeholder="Type your full answer here…"
-              value={textAnswers[question.id] ?? ""}
-              onChange={(e) =>
-                setTextAnswers((t) => ({ ...t, [question.id]: e.target.value }))
-              }
-            />
-            <p className="mt-1 text-right text-xs text-muted-foreground">
-              {(textAnswers[question.id] ?? "").length}/5000 characters
+      {activeItem.kind === "passage" ? (
+        <div className="mt-4 space-y-4">
+          <section className="surface-card p-5">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5" /> Reading comprehension
             </p>
-          </div>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {LETTERS.map((l) => {
-              const selected = answers[question.id] === l;
-              return (
-                <button
-                  key={l}
-                  onClick={() => setAnswers((a) => ({ ...a, [question.id]: l }))}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
-                    selected
-                      ? "border-primary bg-primary-soft font-semibold text-primary"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
-                    {l}
-                  </span>
-                  <span className="min-w-0">{optionText(question, l)}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+            <h2 className="mt-2 font-semibold">{activeItem.parent.question_text}</h2>
+            <div className="mt-3 max-h-[45vh] overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
+              {activeItem.parent.passage_text ?? "Passage text not available."}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Read the passage carefully, then answer the {activeItem.children.length} question
+              {activeItem.children.length > 1 ? "s" : ""} below.
+            </p>
+          </section>
 
+          {activeItem.children.map((child, i) => (
+            <section key={child.id} className="surface-card p-5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+                  Q{firstIndexOfItem + i}
+                </span>
+                <span>
+                  {child.marks} mark{child.marks > 1 ? "s" : ""}
+                </span>
+                <span>· {questionTime[child.id] ?? 0}s</span>
+              </div>
+              <p className="mt-2 font-semibold">{child.question_text}</p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={profile?.is_vip ? "default" : "outline"}
-            onClick={() => {
-              if (!profile?.is_vip) {
-                toast.error("💡 Hints are VIP only — finish 2 tests back-to-back to unlock");
-                return;
-              }
-              setShowHint((h) => ({ ...h, [question.id]: true }));
-            }}
-          >
-            <Lightbulb className="h-4 w-4" /> Hint
-            {!profile?.is_vip && <Crown className="h-3.5 w-3.5 text-gold" />}
-          </Button>
-          <ReportDialog questionId={question.id} userId={user?.id} />
+              {child.question_type === "mcq" ? (
+                <div className="mt-4 space-y-2">
+                  {LETTERS.map((l) => {
+                    const selected = answers[child.id] === l;
+                    return (
+                      <button
+                        key={l}
+                        onClick={() => setAnswers((a) => ({ ...a, [child.id]: l }))}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+                          selected
+                            ? "border-primary bg-primary-soft font-semibold text-primary"
+                            : "border-border hover:bg-accent"
+                        }`}
+                      >
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
+                          {l}
+                        </span>
+                        <span className="min-w-0">{optionText(child, l)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <label
+                    htmlFor={`answer-${child.id}`}
+                    className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                  >
+                    Your answer
+                  </label>
+                  <Textarea
+                    id={`answer-${child.id}`}
+                    rows={6}
+                    maxLength={5000}
+                    className="mt-2 min-h-[140px] text-base"
+                    placeholder="Type your answer based on the passage…"
+                    value={textAnswers[child.id] ?? ""}
+                    onChange={(e) =>
+                      setTextAnswers((t) => ({ ...t, [child.id]: e.target.value }))
+                    }
+                  />
+                  <p className="mt-1 text-right text-xs text-muted-foreground">
+                    {(textAnswers[child.id] ?? "").length}/5000 characters
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <HintButton
+                  isVip={Boolean(profile?.is_vip)}
+                  shown={Boolean(showHint[child.id])}
+                  onShow={() => setShowHint((h) => ({ ...h, [child.id]: true }))}
+                />
+                <ReportDialog questionId={child.id} userId={user?.id} />
+              </div>
+              {showHint[child.id] && profile?.is_vip && (
+                <p className="mt-3 rounded-lg bg-gold-soft p-3 text-sm text-gold-foreground">
+                  💡 {child.hint ?? "No hint available for this question."}
+                </p>
+              )}
+            </section>
+          ))}
         </div>
-
-        {showHint[question.id] && profile?.is_vip && (
-          <p className="mt-3 rounded-lg bg-gold-soft p-3 text-sm text-gold-foreground">
-            💡 {question.hint ?? "No hint available for this question."}
-          </p>
-        )}
-      </div>
+      ) : (
+        <SingleQuestionCard
+          question={activeItem.question}
+          seconds={questionTime[activeItem.question.id] ?? 0}
+          selected={answers[activeItem.question.id]}
+          onSelect={(l) => setAnswers((a) => ({ ...a, [activeItem.question.id]: l }))}
+          text={textAnswers[activeItem.question.id] ?? ""}
+          onText={(v) => setTextAnswers((t) => ({ ...t, [activeItem.question.id]: v }))}
+          isVip={Boolean(profile?.is_vip)}
+          hintShown={Boolean(showHint[activeItem.question.id])}
+          onShowHint={() => setShowHint((h) => ({ ...h, [activeItem.question.id]: true }))}
+          userId={user?.id}
+        />
+      )}
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <Button
@@ -529,7 +574,7 @@ function TestPage() {
         >
           Previous
         </Button>
-        {current < questions.length - 1 ? (
+        {current < items.length - 1 ? (
           <Button onClick={() => setCurrent((c) => c + 1)}>Next</Button>
         ) : (
           <Button disabled={saving} onClick={() => submit(false)}>
@@ -539,26 +584,235 @@ function TestPage() {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {questions.map((qq, i) => (
-          <button
-            key={qq.id}
-            onClick={() => setCurrent(i)}
-            className={`h-8 w-8 rounded-lg text-xs font-bold ${
-              i === current
-                ? "bg-primary text-primary-foreground"
-                : (qq.question_type === "subjective"
-                      ? (textAnswers[qq.id]?.trim().length ?? 0) > 0
-                      : Boolean(answers[qq.id]))
-
-                  ? "bg-success text-success-foreground"
-                  : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {i + 1}
-          </button>
-        ))}
+        {items.map((it, i) => {
+          const qs = it.kind === "single" ? [it.question] : it.children;
+          const done = qs.every(isAnswered);
+          const label =
+            it.kind === "single"
+              ? String(answerable.findIndex((a) => a.id === it.question.id) + 1)
+              : `P${answerable.findIndex((a) => a.id === it.children[0]!.id) + 1}`;
+          return (
+            <button
+              key={it.kind === "single" ? it.question.id : it.parent.id}
+              onClick={() => setCurrent(i)}
+              className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold ${
+                i === current
+                  ? "bg-primary text-primary-foreground"
+                  : done
+                    ? "bg-success text-success-foreground"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
     </main>
+  );
+}
+
+function HintButton({
+  isVip,
+  shown,
+  onShow,
+}: {
+  isVip: boolean;
+  shown: boolean;
+  onShow: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={isVip ? "default" : "outline"}
+      onClick={() => {
+        if (!isVip) {
+          toast.error("💡 Hints are VIP only — finish 2 tests back-to-back to unlock");
+          return;
+        }
+        if (!shown) onShow();
+      }}
+    >
+      <Lightbulb className="h-4 w-4" /> Hint
+      {!isVip && <Crown className="h-3.5 w-3.5 text-gold" />}
+    </Button>
+  );
+}
+
+function SingleQuestionCard({
+  question,
+  seconds,
+  selected,
+  onSelect,
+  text,
+  onText,
+  isVip,
+  hintShown,
+  onShowHint,
+  userId,
+}: {
+  question: Question;
+  seconds: number;
+  selected: string | undefined;
+  onSelect: (letter: string) => void;
+  text: string;
+  onText: (value: string) => void;
+  isVip: boolean;
+  hintShown: boolean;
+  onShowHint: () => void;
+  userId: string | undefined;
+}) {
+  const isSubjective = question.question_type !== "mcq";
+  return (
+    <div className="surface-card mt-4 p-5">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="rounded-full bg-muted px-2 py-0.5 font-semibold">
+          {isSubjective ? "Long answer" : "Multiple choice"}
+        </span>
+        <span>
+          {question.marks} mark{question.marks > 1 ? "s" : ""}
+        </span>
+        <span>· {seconds}s on this question</span>
+      </div>
+      <p className="mt-2 font-semibold">{question.question_text}</p>
+
+      {isSubjective ? (
+        <div className="mt-4">
+          <label
+            htmlFor={`answer-${question.id}`}
+            className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+          >
+            Write your answer here
+          </label>
+          <Textarea
+            id={`answer-${question.id}`}
+            rows={9}
+            maxLength={5000}
+            className="mt-2 min-h-[200px] text-base"
+            placeholder="Type your full answer here…"
+            value={text}
+            onChange={(e) => onText(e.target.value)}
+          />
+          <p className="mt-1 text-right text-xs text-muted-foreground">
+            {text.length}/5000 characters
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {LETTERS.map((l) => {
+            const isSelected = selected === l;
+            return (
+              <button
+                key={l}
+                onClick={() => onSelect(l)}
+                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm transition-colors ${
+                  isSelected
+                    ? "border-primary bg-primary-soft font-semibold text-primary"
+                    : "border-border hover:bg-accent"
+                }`}
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-xs font-bold">
+                  {l}
+                </span>
+                <span className="min-w-0">{optionText(question, l)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <HintButton isVip={isVip} shown={hintShown} onShow={onShowHint} />
+        <ReportDialog questionId={question.id} userId={userId} />
+      </div>
+
+      {hintShown && isVip && (
+        <p className="mt-3 rounded-lg bg-gold-soft p-3 text-sm text-gold-foreground">
+          💡 {question.hint ?? "No hint available for this question."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ReviewRow({
+  index,
+  question,
+  chosen,
+  text,
+  seconds,
+}: {
+  index: number;
+  question: Question;
+  chosen: string | undefined;
+  text: string | undefined;
+  seconds: number;
+}) {
+  const subjective = question.question_type !== "mcq";
+  const ok = !subjective && chosen === question.correct_option;
+  return (
+    <div>
+      <div className="flex items-start gap-2">
+        <span
+          className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+            subjective
+              ? "bg-muted text-muted-foreground"
+              : ok
+                ? "bg-success text-success-foreground"
+                : "bg-destructive text-destructive-foreground"
+          }`}
+        >
+          {subjective ? (
+            <Clock className="h-3.5 w-3.5" />
+          ) : ok ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <X className="h-3.5 w-3.5" />
+          )}
+        </span>
+        <p className="min-w-0 font-semibold">
+          {index}. {question.question_text}
+        </p>
+      </div>
+      {subjective ? (
+        <>
+          <p className="mt-2 text-sm whitespace-pre-wrap">
+            <span className="text-muted-foreground">Your answer: </span>
+            {text?.trim() || "Not answered"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Awaiting manual grading · worth {question.marks} mark{question.marks > 1 ? "s" : ""}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-sm">
+            <span className="text-muted-foreground">Your answer: </span>
+            {chosen ? `${chosen}. ${optionText(question, chosen)}` : "Not answered"}
+          </p>
+          {!ok && (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Correct answer: </span>
+              <span className="font-semibold text-success">
+                {question.correct_option}. {optionText(question, question.correct_option)}
+              </span>
+            </p>
+          )}
+        </>
+      )}
+      {question.explanation && (
+        <p className="mt-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+          <strong className="text-foreground">Explanation: </strong>
+          {question.explanation}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">Time on this question: {seconds}s</p>
+      {!subjective && !ok && (
+        <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+          <Bookmark className="h-3.5 w-3.5" /> Saved to your Revision list
+        </p>
+      )}
+    </div>
   );
 }
 
