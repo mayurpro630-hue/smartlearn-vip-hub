@@ -25,7 +25,7 @@ export function QuestionReview() {
       const { data, error } = await supabase
         .from("questions")
         .select(
-          "id, test_id, question_text, option_a, option_b, option_c, option_d, correct_option, model_answer, question_type, marks, status, explanation, hint, position, tests(title)",
+          "id, test_id, question_text, option_a, option_b, option_c, option_d, correct_option, model_answer, passage_text, question_type, marks, status, explanation, hint, position, tests(title)",
         )
         .eq("status", filter)
         .order("created_at", { ascending: false });
@@ -104,8 +104,12 @@ export function QuestionReview() {
         <section key={r.id} className="surface-card p-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{r.tests?.title ?? "Unassigned test"}</Badge>
-            <Badge variant={r.question_type === "subjective" ? "outline" : "default"}>
-              {r.question_type === "subjective" ? "Subjective" : "MCQ"}
+            <Badge variant={r.question_type === "mcq" ? "default" : "outline"}>
+              {r.question_type === "mcq"
+                ? "MCQ"
+                : r.question_type === "passage"
+                  ? "Reading passage"
+                  : "Subjective"}
             </Badge>
             <Badge variant="outline">{r.marks} marks</Badge>
             {r.status === "draft" ? (
@@ -152,6 +156,12 @@ export function QuestionReview() {
                 ))}
               </div>
             </>
+          ) : r.question_type === "passage" ? (
+            <div className="mt-3 max-h-56 overflow-y-auto rounded-lg bg-muted p-3 text-sm whitespace-pre-wrap">
+              {r.passage_text || (
+                <span className="text-muted-foreground">Passage text missing</span>
+              )}
+            </div>
           ) : (
             <div className="mt-3 rounded-lg bg-muted p-3 text-sm">
               <strong>Model answer: </strong>

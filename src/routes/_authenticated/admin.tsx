@@ -15,6 +15,7 @@ import { QuestionReview } from "@/components/admin/QuestionReview";
 import { ManualGrading } from "@/components/admin/ManualGrading";
 import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytics";
 import { VipSettings } from "@/components/admin/VipSettings";
+import { PassageBuilder } from "@/components/admin/PassageBuilder";
 import { VipBadge } from "@/components/VipBadge";
 
 import {
@@ -96,10 +97,11 @@ function Admin() {
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4 lg:grid-cols-7">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4 lg:grid-cols-4">
           {(
             [
               ["content", "Content"],
+              ["passage", "Passages"],
               ["review", "Review & Publish"],
               ["grading", "Manual Grading"],
               ["analytics", "Analytics"],
@@ -119,6 +121,9 @@ function Admin() {
         </TabsList>
         <TabsContent value="content" className="mt-4">
           <ContentManager />
+        </TabsContent>
+        <TabsContent value="passage" className="mt-4">
+          <PassageBuilder />
         </TabsContent>
         <TabsContent value="review" className="mt-4">
           <QuestionReview />
