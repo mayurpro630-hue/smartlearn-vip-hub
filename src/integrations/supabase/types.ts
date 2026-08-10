@@ -240,6 +240,8 @@ export type Database = {
           option_b: string
           option_c: string
           option_d: string
+          passage_id: string | null
+          passage_text: string | null
           position: number
           published_at: string | null
           question_text: string
@@ -259,6 +261,8 @@ export type Database = {
           option_b: string
           option_c: string
           option_d: string
+          passage_id?: string | null
+          passage_text?: string | null
           position?: number
           published_at?: string | null
           question_text: string
@@ -278,6 +282,8 @@ export type Database = {
           option_b?: string
           option_c?: string
           option_d?: string
+          passage_id?: string | null
+          passage_text?: string | null
           position?: number
           published_at?: string | null
           question_text?: string
@@ -286,6 +292,13 @@ export type Database = {
           test_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "questions_passage_id_fkey"
+            columns: ["passage_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "questions_test_id_fkey"
             columns: ["test_id"]
@@ -478,7 +491,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "student"
       publish_status: "draft" | "published"
-      question_kind: "mcq" | "subjective"
+      question_kind: "mcq" | "subjective" | "passage"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -608,7 +621,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "student"],
       publish_status: ["draft", "published"],
-      question_kind: ["mcq", "subjective"],
+      question_kind: ["mcq", "subjective", "passage"],
     },
   },
 } as const
