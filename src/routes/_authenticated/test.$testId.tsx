@@ -440,7 +440,7 @@ function TestPage() {
                           question={child}
                           chosen={answers[child.id]}
                           text={textAnswers[child.id]}
-                          seconds={questionTime[child.id] ?? 0}
+                          seconds={timeRef.current[child.id] ?? 0}
                         />
                       );
                     })}
