@@ -474,14 +474,13 @@ function TestPage() {
 
   const activeItem = items[current]!;
   const answeredCount = answerable.filter(isAnswered).length;
-  const lowTime = remaining <= 30;
   const firstIndexOfItem =
     answerable.findIndex(
       (a) => a.id === (activeItem.kind === "single" ? activeItem.question.id : activeItem.children[0]?.id),
     ) + 1;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <main className="mx-auto max-w-3xl select-text px-4 py-6">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs text-muted-foreground">
@@ -489,14 +488,14 @@ function TestPage() {
           </p>
           <h1 className="truncate text-xl font-bold">{q.data.title}</h1>
         </div>
-        <div
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${lowTime ? "bg-destructive text-destructive-foreground" : "bg-primary-soft text-primary"}`}
-        >
-          <Clock className="h-4 w-4" />
-          {String(Math.floor(remaining / 60)).padStart(2, "0")}:
-          {String(remaining % 60).padStart(2, "0")}
-        </div>
+        <TimerBadge
+          startedAt={startRef.current}
+          duration={duration}
+          paused={submitted}
+          onExpire={() => void submit(true)}
+        />
       </div>
+
 
       {practiceMode && (
         <div className="mt-4 rounded-2xl border border-border bg-muted/60 p-3 text-xs text-muted-foreground">
