@@ -8,6 +8,7 @@ import {
   Bookmark,
   Check,
   Clock,
+  Copy,
   Crown,
   Flag,
   Lightbulb,
@@ -16,9 +17,11 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { copyText } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +30,64 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+function CopyButton({ text, label = "Copy" }: { text: string | null | undefined; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => void copyText(text ?? "", "Copied to clipboard")}
+      className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-semibold text-muted-foreground hover:text-foreground"
+    >
+      <Copy className="h-3 w-3" /> {label}
+    </button>
+  );
+}
+
+/** Own interval so the clock never re-renders the whole test page. */
+function TimerBadge({
+  startedAt,
+  duration,
+  paused,
+  onExpire,
+}: {
+  startedAt: number;
+  duration: number;
+  paused: boolean;
+  onExpire: () => void;
+}) {
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, duration - Math.round((Date.now() - startedAt) / 1000)),
+  );
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const tick = () => {
+      const left = Math.max(0, duration - Math.round((Date.now() - startedAt) / 1000));
+      setRemaining(left);
+      if (left === 0 && !firedRef.current) {
+        firedRef.current = true;
+        onExpire();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, duration, startedAt]);
+
+  const lowTime = remaining <= 30;
+  return (
+    <div
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${lowTime ? "bg-destructive text-destructive-foreground" : "bg-primary-soft text-primary"}`}
+    >
+      <Clock className="h-4 w-4" />
+      {String(Math.floor(remaining / 60)).padStart(2, "0")}:
+      {String(remaining % 60).padStart(2, "0")}
+    </div>
+  );
+}
+
 
 export const Route = createFileRoute("/_authenticated/test/$testId")({
   head: () => ({
