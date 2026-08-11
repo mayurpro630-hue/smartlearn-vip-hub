@@ -577,22 +577,18 @@ function TestPage() {
                   >
                     Your answer
                   </label>
-                  <Textarea
-                    id={`answer-${child.id}`}
-                    rows={6}
-                    maxLength={5000}
-                    className="mt-2 min-h-[140px] text-base"
-                    placeholder="Type your answer based on the passage…"
-                    value={textAnswers[child.id] ?? ""}
-                    onChange={(e) =>
-                      setTextAnswers((t) => ({ ...t, [child.id]: e.target.value }))
-                    }
-                  />
-                  <p className="mt-1 text-right text-xs text-muted-foreground">
-                    {(textAnswers[child.id] ?? "").length}/5000 characters
-                  </p>
+                  <div className="mt-2">
+                    <VoiceTextarea
+                      id={`answer-${child.id}`}
+                      rows={6}
+                      placeholder="Type or speak your answer based on the passage…"
+                      value={textAnswers[child.id] ?? ""}
+                      onChange={(v) => setTextAnswers((t) => ({ ...t, [child.id]: v }))}
+                    />
+                  </div>
                 </div>
               )}
+
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <HintButton
