@@ -609,7 +609,7 @@ function TestPage() {
       ) : (
         <SingleQuestionCard
           question={activeItem.question}
-          seconds={questionTime[activeItem.question.id] ?? 0}
+          seconds={timeRef.current[activeItem.question.id] ?? 0}
           selected={answers[activeItem.question.id]}
           onSelect={(l) => setAnswers((a) => ({ ...a, [activeItem.question.id]: l }))}
           text={textAnswers[activeItem.question.id] ?? ""}
