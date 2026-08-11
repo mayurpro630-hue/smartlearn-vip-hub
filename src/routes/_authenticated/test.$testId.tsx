@@ -8,6 +8,7 @@ import {
   Bookmark,
   Check,
   Clock,
+  Copy,
   Crown,
   Flag,
   Lightbulb,
@@ -16,9 +17,11 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { copyText } from "@/lib/copy";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +30,64 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+function CopyButton({ text, label = "Copy" }: { text: string | null | undefined; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => void copyText(text ?? "", "Copied to clipboard")}
+      className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-semibold text-muted-foreground hover:text-foreground"
+    >
+      <Copy className="h-3 w-3" /> {label}
+    </button>
+  );
+}
+
+/** Own interval so the clock never re-renders the whole test page. */
+function TimerBadge({
+  startedAt,
+  duration,
+  paused,
+  onExpire,
+}: {
+  startedAt: number;
+  duration: number;
+  paused: boolean;
+  onExpire: () => void;
+}) {
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, duration - Math.round((Date.now() - startedAt) / 1000)),
+  );
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const tick = () => {
+      const left = Math.max(0, duration - Math.round((Date.now() - startedAt) / 1000));
+      setRemaining(left);
+      if (left === 0 && !firedRef.current) {
+        firedRef.current = true;
+        onExpire();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, duration, startedAt]);
+
+  const lowTime = remaining <= 30;
+  return (
+    <div
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${lowTime ? "bg-destructive text-destructive-foreground" : "bg-primary-soft text-primary"}`}
+    >
+      <Clock className="h-4 w-4" />
+      {String(Math.floor(remaining / 60)).padStart(2, "0")}:
+      {String(remaining % 60).padStart(2, "0")}
+    </div>
+  );
+}
+
 
 export const Route = createFileRoute("/_authenticated/test/$testId")({
   head: () => ({
@@ -78,10 +139,8 @@ function TestPage() {
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
-  const [questionTime, setQuestionTime] = useState<Record<string, number>>({});
   const [current, setCurrent] = useState(0);
   const [switches, setSwitches] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -90,13 +149,30 @@ function TestPage() {
     total: number;
     pending: number;
     practice: boolean;
+    elapsed: number;
   } | null>(
     null,
   );
   const submittedRef = useRef(false);
+  const startRef = useRef<number>(Date.now());
+  // Per-question seconds are kept in a ref so the whole test page does not
+  // re-render every second (that was the main source of lag).
+  const timeRef = useRef<Record<string, number>>({});
+  const spanRef = useRef<{ ids: string[]; at: number } | null>(null);
+
+  function flushSpan() {
+    const span = spanRef.current;
+    if (!span) return;
+    const secs = Math.max(0, Math.round((Date.now() - span.at) / 1000));
+    for (const id of span.ids) timeRef.current[id] = (timeRef.current[id] ?? 0) + secs;
+    span.at = Date.now();
+  }
+
+  const draftKey = user ? `me:test-draft:${user.id}:${testId}` : null;
 
   const q = useQuery({
     queryKey: ["test", testId],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tests")
@@ -113,17 +189,20 @@ function TestPage() {
   const priorAttempts = useQuery({
     queryKey: ["prior-attempts", testId, user?.id],
     enabled: !!user,
+    staleTime: 60_000,
     queryFn: async () => {
       const { count, error } = await supabase
         .from("test_attempts")
         .select("id", { count: "exact", head: true })
         .eq("test_id", testId)
+        .eq("user_id", user!.id)
         .eq("is_practice", false);
       if (error) throw error;
       return count ?? 0;
     },
   });
   const practiceMode = (priorAttempts.data ?? 0) > 0;
+
 
   const published = useMemo(
     () =>
@@ -161,36 +240,64 @@ function TestPage() {
 
   const duration = (q.data?.duration_minutes ?? 10) * 60;
 
-  const remaining = Math.max(0, duration - elapsed);
-
-  // Timer
-  useEffect(() => {
-    if (submitted) return;
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(id);
-  }, [submitted]);
-
   // Per-question time tracking (a passage's time is credited to each sub-question)
   const item = items[current];
-  const trackedIds = useMemo(() => {
-    if (!item) return [] as string[];
-    return item.kind === "single" ? [item.question.id] : item.children.map((c) => c.id);
+  const trackedKey = useMemo(() => {
+    if (!item) return "";
+    return (item.kind === "single" ? [item.question.id] : item.children.map((c) => c.id)).join(",");
   }, [item]);
-  const trackedKey = trackedIds.join(",");
   useEffect(() => {
     if (submitted || !trackedKey) return;
-    const ids = trackedKey.split(",");
-    const id = setInterval(
-      () =>
-        setQuestionTime((t) => {
-          const next = { ...t };
-          for (const qid of ids) next[qid] = (next[qid] ?? 0) + 1;
-          return next;
-        }),
-      1000,
-    );
-    return () => clearInterval(id);
+    spanRef.current = { ids: trackedKey.split(","), at: Date.now() };
+    return () => {
+      flushSpan();
+      spanRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, trackedKey]);
+
+  // Restore an in-progress attempt so a refresh, crash or app reload never
+  // wipes the student's typed answers.
+  useEffect(() => {
+    if (!draftKey || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        answers?: Record<string, string>;
+        textAnswers?: Record<string, string>;
+        times?: Record<string, number>;
+        startedAt?: number;
+      };
+      if (saved.answers) setAnswers(saved.answers);
+      if (saved.textAnswers) setTextAnswers(saved.textAnswers);
+      if (saved.times) timeRef.current = saved.times;
+      if (saved.startedAt) startRef.current = saved.startedAt;
+    } catch {
+      // corrupt draft — ignore
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || submitted || typeof window === "undefined") return;
+    const id = setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            answers,
+            textAnswers,
+            times: timeRef.current,
+            startedAt: startRef.current,
+          }),
+        );
+      } catch {
+        // storage full / blocked — keep going
+      }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [answers, textAnswers, draftKey, submitted]);
+
 
   // Proctoring: tab switch / minimise / back button
   useEffect(() => {
@@ -231,6 +338,8 @@ function TestPage() {
     if (submittedRef.current || !user || answerable.length === 0) return;
     submittedRef.current = true;
     setSaving(true);
+    flushSpan();
+    const elapsedSeconds = Math.max(0, Math.round((Date.now() - startRef.current) / 1000));
 
     const graded = answerable.map((qq) => {
       const written = qq.question_type !== "mcq";
@@ -241,7 +350,7 @@ function TestPage() {
         is_correct: !written && answers[qq.id] === qq.correct_option,
         graded: !written,
         awarded_marks: !written && answers[qq.id] === qq.correct_option ? qq.marks : 0,
-        time_spent_seconds: questionTime[qq.id] ?? 0,
+        time_spent_seconds: timeRef.current[qq.id] ?? 0,
       };
     });
     const mcqs = answerable.filter((qq) => qq.question_type === "mcq");
@@ -256,7 +365,7 @@ function TestPage() {
         score: correct,
         total_questions: answerable.length,
         correct_count: correct,
-        time_spent_seconds: elapsed,
+        time_spent_seconds: elapsedSeconds,
         tab_switch_count: switches,
       })
       .select("id, is_practice")
@@ -283,10 +392,25 @@ function TestPage() {
         );
     }
 
-    setResult({ correct, total: mcqs.length, pending, practice: attempt.is_practice });
+    setResult({
+      correct,
+      total: mcqs.length,
+      pending,
+      practice: attempt.is_practice,
+      elapsed: elapsedSeconds,
+    });
     setSubmitted(true);
     setSaving(false);
-    queryClient.invalidateQueries();
+    if (draftKey && typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+    }
+    for (const key of ["profile", "role", "attempts", "prior-attempts", "top-vip", "bookmarks"]) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
     toast.success(
       attempt.is_practice
         ? "Practice attempt saved — your official score is unchanged"
@@ -296,12 +420,6 @@ function TestPage() {
     );
   }
 
-  useEffect(() => {
-    if (!submitted && remaining === 0 && answerable.length > 0 && elapsed > 0) {
-      void submit(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, answerable.length]);
 
   if (q.isLoading) {
     return <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">Loading test…</main>;
@@ -331,7 +449,9 @@ function TestPage() {
             {result.correct}/{result.total}
           </p>
           <p className="mt-2 text-sm opacity-90">
-            {percent}% · {Math.floor(elapsed / 60)}m {elapsed % 60}s · {switches} focus warnings
+            {percent}% · {Math.floor(result.elapsed / 60)}m {result.elapsed % 60}s · {switches} focus
+            warnings
+
           </p>
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/20 px-3 py-1 text-xs font-bold">
             {result.practice ? "Practice mode — official score unchanged" : "Official attempt recorded"}
@@ -381,7 +501,7 @@ function TestPage() {
                           question={child}
                           chosen={answers[child.id]}
                           text={textAnswers[child.id]}
-                          seconds={questionTime[child.id] ?? 0}
+                          seconds={timeRef.current[child.id] ?? 0}
                         />
                       );
                     })}
@@ -397,7 +517,7 @@ function TestPage() {
                   question={it.question}
                   chosen={answers[it.question.id]}
                   text={textAnswers[it.question.id]}
-                  seconds={questionTime[it.question.id] ?? 0}
+                  seconds={timeRef.current[it.question.id] ?? 0}
                 />
               </div>
             );
@@ -415,14 +535,13 @@ function TestPage() {
 
   const activeItem = items[current]!;
   const answeredCount = answerable.filter(isAnswered).length;
-  const lowTime = remaining <= 30;
   const firstIndexOfItem =
     answerable.findIndex(
       (a) => a.id === (activeItem.kind === "single" ? activeItem.question.id : activeItem.children[0]?.id),
     ) + 1;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <main className="mx-auto max-w-3xl select-text px-4 py-6">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs text-muted-foreground">
@@ -430,14 +549,14 @@ function TestPage() {
           </p>
           <h1 className="truncate text-xl font-bold">{q.data.title}</h1>
         </div>
-        <div
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${lowTime ? "bg-destructive text-destructive-foreground" : "bg-primary-soft text-primary"}`}
-        >
-          <Clock className="h-4 w-4" />
-          {String(Math.floor(remaining / 60)).padStart(2, "0")}:
-          {String(remaining % 60).padStart(2, "0")}
-        </div>
+        <TimerBadge
+          startedAt={startRef.current}
+          duration={duration}
+          paused={submitted}
+          onExpire={() => void submit(true)}
+        />
       </div>
+
 
       {practiceMode && (
         <div className="mt-4 rounded-2xl border border-border bg-muted/60 p-3 text-xs text-muted-foreground">
@@ -462,17 +581,21 @@ function TestPage() {
       {activeItem.kind === "passage" ? (
         <div className="mt-4 space-y-4">
           <section className="surface-card p-5">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-              <BookOpen className="h-3.5 w-3.5" /> Reading comprehension
-            </p>
-            <h2 className="mt-2 font-semibold">{activeItem.parent.question_text}</h2>
-            <div className="mt-3 max-h-[45vh] overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 font-semibold text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5" /> Reading comprehension
+              </p>
+              <CopyButton text={activeItem.parent.passage_text} label="Copy passage" />
+            </div>
+            <h2 className="mt-2 select-text font-semibold">{activeItem.parent.question_text}</h2>
+            <div className="mt-3 max-h-[45vh] select-text overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
               {activeItem.parent.passage_text ?? "Passage text not available."}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Read the passage carefully, then answer the {activeItem.children.length} question
               {activeItem.children.length > 1 ? "s" : ""} below.
             </p>
+
           </section>
 
           {activeItem.children.map((child, i) => (
@@ -484,9 +607,10 @@ function TestPage() {
                 <span>
                   {child.marks} mark{child.marks > 1 ? "s" : ""}
                 </span>
-                <span>· {questionTime[child.id] ?? 0}s</span>
+                <CopyButton text={child.question_text} label="Copy question" />
               </div>
-              <p className="mt-2 font-semibold">{child.question_text}</p>
+              <p className="mt-2 select-text font-semibold">{child.question_text}</p>
+
 
               {child.question_type === "mcq" ? (
                 <div className="mt-4 space-y-2">
@@ -518,22 +642,18 @@ function TestPage() {
                   >
                     Your answer
                   </label>
-                  <Textarea
-                    id={`answer-${child.id}`}
-                    rows={6}
-                    maxLength={5000}
-                    className="mt-2 min-h-[140px] text-base"
-                    placeholder="Type your answer based on the passage…"
-                    value={textAnswers[child.id] ?? ""}
-                    onChange={(e) =>
-                      setTextAnswers((t) => ({ ...t, [child.id]: e.target.value }))
-                    }
-                  />
-                  <p className="mt-1 text-right text-xs text-muted-foreground">
-                    {(textAnswers[child.id] ?? "").length}/5000 characters
-                  </p>
+                  <div className="mt-2">
+                    <VoiceTextarea
+                      id={`answer-${child.id}`}
+                      rows={6}
+                      placeholder="Type or speak your answer based on the passage…"
+                      value={textAnswers[child.id] ?? ""}
+                      onChange={(v) => setTextAnswers((t) => ({ ...t, [child.id]: v }))}
+                    />
+                  </div>
                 </div>
               )}
+
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <HintButton
@@ -554,7 +674,7 @@ function TestPage() {
       ) : (
         <SingleQuestionCard
           question={activeItem.question}
-          seconds={questionTime[activeItem.question.id] ?? 0}
+          seconds={timeRef.current[activeItem.question.id] ?? 0}
           selected={answers[activeItem.question.id]}
           onSelect={(l) => setAnswers((a) => ({ ...a, [activeItem.question.id]: l }))}
           text={textAnswers[activeItem.question.id] ?? ""}
@@ -672,9 +792,10 @@ function SingleQuestionCard({
         <span>
           {question.marks} mark{question.marks > 1 ? "s" : ""}
         </span>
-        <span>· {seconds}s on this question</span>
+        <span>· {seconds}s so far</span>
+        <CopyButton text={question.question_text} label="Copy question" />
       </div>
-      <p className="mt-2 font-semibold">{question.question_text}</p>
+      <p className="mt-2 select-text font-semibold">{question.question_text}</p>
 
       {isSubjective ? (
         <div className="mt-4">
@@ -684,19 +805,17 @@ function SingleQuestionCard({
           >
             Write your answer here
           </label>
-          <Textarea
-            id={`answer-${question.id}`}
-            rows={9}
-            maxLength={5000}
-            className="mt-2 min-h-[200px] text-base"
-            placeholder="Type your full answer here…"
-            value={text}
-            onChange={(e) => onText(e.target.value)}
-          />
-          <p className="mt-1 text-right text-xs text-muted-foreground">
-            {text.length}/5000 characters
-          </p>
+          <div className="mt-2">
+            <VoiceTextarea
+              id={`answer-${question.id}`}
+              rows={9}
+              placeholder="Type or speak your full answer here…"
+              value={text}
+              onChange={onText}
+            />
+          </div>
         </div>
+
       ) : (
         <div className="mt-4 space-y-2">
           {LETTERS.map((l) => {

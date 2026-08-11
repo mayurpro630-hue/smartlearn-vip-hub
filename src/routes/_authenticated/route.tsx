@@ -4,9 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    // getSession reads the persisted session locally (no network round-trip),
+    // so protected pages such as tests open instantly.
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user) throw redirect({ to: "/auth" });
+    return { user: data.session.user };
   },
   component: () => <Outlet />,
 });
+

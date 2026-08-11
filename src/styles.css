@@ -161,7 +161,27 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    /* Allow text selection + long-press copy everywhere (mobile webviews
+       otherwise block the native copy callout). */
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
+
+  p,
+  span,
+  li,
+  td,
+  h1,
+  h2,
+  h3,
+  h4,
+  textarea,
+  input {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
 
   h1,
   h2,
