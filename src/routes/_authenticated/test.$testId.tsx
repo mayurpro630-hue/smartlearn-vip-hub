@@ -179,36 +179,64 @@ function TestPage() {
 
   const duration = (q.data?.duration_minutes ?? 10) * 60;
 
-  const remaining = Math.max(0, duration - elapsed);
-
-  // Timer
-  useEffect(() => {
-    if (submitted) return;
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(id);
-  }, [submitted]);
-
   // Per-question time tracking (a passage's time is credited to each sub-question)
   const item = items[current];
-  const trackedIds = useMemo(() => {
-    if (!item) return [] as string[];
-    return item.kind === "single" ? [item.question.id] : item.children.map((c) => c.id);
+  const trackedKey = useMemo(() => {
+    if (!item) return "";
+    return (item.kind === "single" ? [item.question.id] : item.children.map((c) => c.id)).join(",");
   }, [item]);
-  const trackedKey = trackedIds.join(",");
   useEffect(() => {
     if (submitted || !trackedKey) return;
-    const ids = trackedKey.split(",");
-    const id = setInterval(
-      () =>
-        setQuestionTime((t) => {
-          const next = { ...t };
-          for (const qid of ids) next[qid] = (next[qid] ?? 0) + 1;
-          return next;
-        }),
-      1000,
-    );
-    return () => clearInterval(id);
+    spanRef.current = { ids: trackedKey.split(","), at: Date.now() };
+    return () => {
+      flushSpan();
+      spanRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, trackedKey]);
+
+  // Restore an in-progress attempt so a refresh, crash or app reload never
+  // wipes the student's typed answers.
+  useEffect(() => {
+    if (!draftKey || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        answers?: Record<string, string>;
+        textAnswers?: Record<string, string>;
+        times?: Record<string, number>;
+        startedAt?: number;
+      };
+      if (saved.answers) setAnswers(saved.answers);
+      if (saved.textAnswers) setTextAnswers(saved.textAnswers);
+      if (saved.times) timeRef.current = saved.times;
+      if (saved.startedAt) startRef.current = saved.startedAt;
+    } catch {
+      // corrupt draft — ignore
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || submitted || typeof window === "undefined") return;
+    const id = setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            answers,
+            textAnswers,
+            times: timeRef.current,
+            startedAt: startRef.current,
+          }),
+        );
+      } catch {
+        // storage full / blocked — keep going
+      }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [answers, textAnswers, draftKey, submitted]);
+
 
   // Proctoring: tab switch / minimise / back button
   useEffect(() => {
