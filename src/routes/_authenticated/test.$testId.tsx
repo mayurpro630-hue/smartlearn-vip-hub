@@ -388,7 +388,9 @@ function TestPage() {
             {result.correct}/{result.total}
           </p>
           <p className="mt-2 text-sm opacity-90">
-            {percent}% · {Math.floor(elapsed / 60)}m {elapsed % 60}s · {switches} focus warnings
+            {percent}% · {Math.floor(result.elapsed / 60)}m {result.elapsed % 60}s · {switches} focus
+            warnings
+
           </p>
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/20 px-3 py-1 text-xs font-bold">
             {result.practice ? "Practice mode — official score unchanged" : "Official attempt recorded"}
