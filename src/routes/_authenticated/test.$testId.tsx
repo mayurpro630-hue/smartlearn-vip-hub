@@ -792,9 +792,10 @@ function SingleQuestionCard({
         <span>
           {question.marks} mark{question.marks > 1 ? "s" : ""}
         </span>
-        <span>· {seconds}s on this question</span>
+        <span>· {seconds}s so far</span>
+        <CopyButton text={question.question_text} label="Copy question" />
       </div>
-      <p className="mt-2 font-semibold">{question.question_text}</p>
+      <p className="mt-2 select-text font-semibold">{question.question_text}</p>
 
       {isSubjective ? (
         <div className="mt-4">
@@ -804,19 +805,17 @@ function SingleQuestionCard({
           >
             Write your answer here
           </label>
-          <Textarea
-            id={`answer-${question.id}`}
-            rows={9}
-            maxLength={5000}
-            className="mt-2 min-h-[200px] text-base"
-            placeholder="Type your full answer here…"
-            value={text}
-            onChange={(e) => onText(e.target.value)}
-          />
-          <p className="mt-1 text-right text-xs text-muted-foreground">
-            {text.length}/5000 characters
-          </p>
+          <div className="mt-2">
+            <VoiceTextarea
+              id={`answer-${question.id}`}
+              rows={9}
+              placeholder="Type or speak your full answer here…"
+              value={text}
+              onChange={onText}
+            />
+          </div>
         </div>
+
       ) : (
         <div className="mt-4 space-y-2">
           {LETTERS.map((l) => {
