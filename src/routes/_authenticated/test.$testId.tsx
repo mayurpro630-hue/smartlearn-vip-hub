@@ -542,9 +542,10 @@ function TestPage() {
                 <span>
                   {child.marks} mark{child.marks > 1 ? "s" : ""}
                 </span>
-                <span>· {questionTime[child.id] ?? 0}s</span>
+                <CopyButton text={child.question_text} label="Copy question" />
               </div>
-              <p className="mt-2 font-semibold">{child.question_text}</p>
+              <p className="mt-2 select-text font-semibold">{child.question_text}</p>
+
 
               {child.question_type === "mcq" ? (
                 <div className="mt-4 space-y-2">
