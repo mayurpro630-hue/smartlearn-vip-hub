@@ -78,10 +78,8 @@ function TestPage() {
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
-  const [questionTime, setQuestionTime] = useState<Record<string, number>>({});
   const [current, setCurrent] = useState(0);
   const [switches, setSwitches] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -90,13 +88,30 @@ function TestPage() {
     total: number;
     pending: number;
     practice: boolean;
+    elapsed: number;
   } | null>(
     null,
   );
   const submittedRef = useRef(false);
+  const startRef = useRef<number>(Date.now());
+  // Per-question seconds are kept in a ref so the whole test page does not
+  // re-render every second (that was the main source of lag).
+  const timeRef = useRef<Record<string, number>>({});
+  const spanRef = useRef<{ ids: string[]; at: number } | null>(null);
+
+  function flushSpan() {
+    const span = spanRef.current;
+    if (!span) return;
+    const secs = Math.max(0, Math.round((Date.now() - span.at) / 1000));
+    for (const id of span.ids) timeRef.current[id] = (timeRef.current[id] ?? 0) + secs;
+    span.at = Date.now();
+  }
+
+  const draftKey = user ? `me:test-draft:${user.id}:${testId}` : null;
 
   const q = useQuery({
     queryKey: ["test", testId],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tests")
@@ -113,17 +128,20 @@ function TestPage() {
   const priorAttempts = useQuery({
     queryKey: ["prior-attempts", testId, user?.id],
     enabled: !!user,
+    staleTime: 60_000,
     queryFn: async () => {
       const { count, error } = await supabase
         .from("test_attempts")
         .select("id", { count: "exact", head: true })
         .eq("test_id", testId)
+        .eq("user_id", user!.id)
         .eq("is_practice", false);
       if (error) throw error;
       return count ?? 0;
     },
   });
   const practiceMode = (priorAttempts.data ?? 0) > 0;
+
 
   const published = useMemo(
     () =>
