@@ -581,17 +581,21 @@ function TestPage() {
       {activeItem.kind === "passage" ? (
         <div className="mt-4 space-y-4">
           <section className="surface-card p-5">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-              <BookOpen className="h-3.5 w-3.5" /> Reading comprehension
-            </p>
-            <h2 className="mt-2 font-semibold">{activeItem.parent.question_text}</h2>
-            <div className="mt-3 max-h-[45vh] overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 font-semibold text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5" /> Reading comprehension
+              </p>
+              <CopyButton text={activeItem.parent.passage_text} label="Copy passage" />
+            </div>
+            <h2 className="mt-2 select-text font-semibold">{activeItem.parent.question_text}</h2>
+            <div className="mt-3 max-h-[45vh] select-text overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap">
               {activeItem.parent.passage_text ?? "Passage text not available."}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Read the passage carefully, then answer the {activeItem.children.length} question
               {activeItem.children.length > 1 ? "s" : ""} below.
             </p>
+
           </section>
 
           {activeItem.children.map((child, i) => (
