@@ -456,7 +456,7 @@ function TestPage() {
                   question={it.question}
                   chosen={answers[it.question.id]}
                   text={textAnswers[it.question.id]}
-                  seconds={questionTime[it.question.id] ?? 0}
+                  seconds={timeRef.current[it.question.id] ?? 0}
                 />
               </div>
             );
