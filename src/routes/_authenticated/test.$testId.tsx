@@ -277,6 +277,8 @@ function TestPage() {
     if (submittedRef.current || !user || answerable.length === 0) return;
     submittedRef.current = true;
     setSaving(true);
+    flushSpan();
+    const elapsedSeconds = Math.max(0, Math.round((Date.now() - startRef.current) / 1000));
 
     const graded = answerable.map((qq) => {
       const written = qq.question_type !== "mcq";
@@ -287,7 +289,7 @@ function TestPage() {
         is_correct: !written && answers[qq.id] === qq.correct_option,
         graded: !written,
         awarded_marks: !written && answers[qq.id] === qq.correct_option ? qq.marks : 0,
-        time_spent_seconds: questionTime[qq.id] ?? 0,
+        time_spent_seconds: timeRef.current[qq.id] ?? 0,
       };
     });
     const mcqs = answerable.filter((qq) => qq.question_type === "mcq");
@@ -302,7 +304,7 @@ function TestPage() {
         score: correct,
         total_questions: answerable.length,
         correct_count: correct,
-        time_spent_seconds: elapsed,
+        time_spent_seconds: elapsedSeconds,
         tab_switch_count: switches,
       })
       .select("id, is_practice")
@@ -329,10 +331,25 @@ function TestPage() {
         );
     }
 
-    setResult({ correct, total: mcqs.length, pending, practice: attempt.is_practice });
+    setResult({
+      correct,
+      total: mcqs.length,
+      pending,
+      practice: attempt.is_practice,
+      elapsed: elapsedSeconds,
+    });
     setSubmitted(true);
     setSaving(false);
-    queryClient.invalidateQueries();
+    if (draftKey && typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+    }
+    for (const key of ["profile", "role", "attempts", "prior-attempts", "top-vip", "bookmarks"]) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
     toast.success(
       attempt.is_practice
         ? "Practice attempt saved — your official score is unchanged"
@@ -342,12 +359,6 @@ function TestPage() {
     );
   }
 
-  useEffect(() => {
-    if (!submitted && remaining === 0 && answerable.length > 0 && elapsed > 0) {
-      void submit(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, answerable.length]);
 
   if (q.isLoading) {
     return <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">Loading test…</main>;
