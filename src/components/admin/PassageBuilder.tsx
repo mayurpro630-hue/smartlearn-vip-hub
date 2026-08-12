@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BookOpen, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ type SubQuestion = { text: string; marks: string; modelAnswer: string; hint: str
 const emptySub = (): SubQuestion => ({ text: "", marks: "2", modelAnswer: "", hint: "" });
 
 export function PassageBuilder() {
+  const { isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [testId, setTestId] = useState("");
   const [title, setTitle] = useState("");
@@ -251,9 +253,11 @@ export function PassageBuilder() {
                   {p.tests?.title} · {p.question_text}{" "}
                   <span className="text-xs text-muted-foreground">({p.status})</span>
                 </span>
-                <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {isSuperAdmin && (
+                  <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

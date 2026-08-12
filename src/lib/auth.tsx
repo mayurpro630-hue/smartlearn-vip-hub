@@ -27,7 +27,14 @@ type AuthValue = {
   user: User | null;
   loading: boolean;
   profile: Profile | null;
+  roles: string[];
   isAdmin: boolean;
+  /** Super admin — full control over everything. */
+  isSuperAdmin: boolean;
+  /** teacher_admin / popular_student_admin — may only add draft content. */
+  isSubAdmin: boolean;
+  /** Anyone allowed into the admin panel (super admin or sub-admin). */
+  isContributor: boolean;
   refreshProfile: () => void;
 };
 
@@ -36,7 +43,11 @@ const AuthContext = createContext<AuthValue>({
   user: null,
   loading: true,
   profile: null,
+  roles: [],
   isAdmin: false,
+  isSuperAdmin: false,
+  isSubAdmin: false,
+  isContributor: false,
   refreshProfile: () => {},
 });
 
@@ -88,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const roles = roleQuery.data ?? [];
+  const isSuperAdmin = roles.includes("admin");
+  const isSubAdmin =
+    !isSuperAdmin &&
+    (roles.includes("teacher_admin") || roles.includes("popular_student_admin"));
+
   return (
     <AuthContext.Provider
       value={{
@@ -95,7 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         loading,
         profile: profileQuery.data ?? null,
-        isAdmin: (roleQuery.data ?? []).includes("admin"),
+        roles,
+        isAdmin: isSuperAdmin,
+        isSuperAdmin,
+        isSubAdmin,
+        isContributor: isSuperAdmin || isSubAdmin,
         refreshProfile: () => {
           queryClient.invalidateQueries({ queryKey: ["profile"] });
           queryClient.invalidateQueries({ queryKey: ["role"] });

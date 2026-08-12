@@ -42,11 +42,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function Admin() {
-  const { isAdmin, refreshProfile } = useAuth();
+  const { isSuperAdmin, isSubAdmin, isContributor, refreshProfile } = useAuth();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!isAdmin) {
+  if (!isContributor) {
     return (
       <main className="mx-auto max-w-md px-4 py-12">
         <div className="surface-card p-6">
@@ -91,25 +91,31 @@ function Admin() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-bold sm:text-3xl">Admin panel</h1>
+      <h1 className="text-2xl font-bold sm:text-3xl">
+        {isSubAdmin ? "Content contributor panel" : "Admin panel"}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage content and monitor student activity.
+        {isSubAdmin
+          ? "You can add questions and passages. Everything you add is saved as a draft for the super admin to review and publish."
+          : "Manage content and monitor student activity."}
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4 lg:grid-cols-4">
           {(
             [
-              ["content", "Content"],
-              ["passage", "Passages"],
-              ["review", "Review & Publish"],
-              ["grading", "Manual Grading"],
-              ["analytics", "Analytics"],
-              ["students", "Students"],
-              ["vip", "VIP Settings"],
-              ["reports", "Reports"],
+              ["content", "Content", true],
+              ["passage", "Passages", true],
+              ["review", "Review & Publish", isSuperAdmin],
+              ["grading", "Manual Grading", isSuperAdmin],
+              ["analytics", "Analytics", isSuperAdmin],
+              ["students", "Students", isSuperAdmin],
+              ["vip", "VIP Settings", isSuperAdmin],
+              ["reports", "Reports", isSuperAdmin],
             ] as const
-          ).map(([value, label]) => (
+          )
+            .filter(([, , visible]) => visible)
+            .map(([value, label]) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -125,24 +131,31 @@ function Admin() {
         <TabsContent value="passage" className="mt-4">
           <PassageBuilder />
         </TabsContent>
-        <TabsContent value="review" className="mt-4">
-          <QuestionReview />
-        </TabsContent>
-        <TabsContent value="grading" className="mt-4">
-          <ManualGrading />
-        </TabsContent>
-        <TabsContent value="analytics" className="mt-4">
-          <TestAnalytics />
-        </TabsContent>
-        <TabsContent value="students" className="mt-4">
-          <StudentMonitor />
-        </TabsContent>
-        <TabsContent value="vip" className="mt-4">
-          <VipSettings />
-        </TabsContent>
-        <TabsContent value="reports" className="mt-4">
-          <Reports />
-        </TabsContent>
+        {isSuperAdmin && (
+          <>
+            <TabsContent value="review" className="mt-4">
+              <QuestionReview />
+            </TabsContent>
+            <TabsContent value="grading" className="mt-4">
+              <ManualGrading />
+            </TabsContent>
+            <TabsContent value="analytics" className="mt-4">
+              <TestAnalytics />
+            </TabsContent>
+            <TabsContent value="students" className="mt-4">
+              <TeamRoles />
+              <div className="mt-4">
+                <StudentMonitor />
+              </div>
+            </TabsContent>
+            <TabsContent value="vip" className="mt-4">
+              <VipSettings />
+            </TabsContent>
+            <TabsContent value="reports" className="mt-4">
+              <Reports />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
 
     </main>
@@ -150,6 +163,7 @@ function Admin() {
 }
 
 function ContentManager() {
+  const { isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [subjectName, setSubjectName] = useState("");
   const [chapterName, setChapterName] = useState("");
@@ -209,6 +223,8 @@ function ContentManager() {
 
   return (
     <div className="space-y-4">
+{isSuperAdmin && (
+      <>
       <section className="surface-card p-5">
         <h2 className="font-bold">Subjects</h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -362,6 +378,9 @@ function ContentManager() {
           ))}
         </ul>
       </section>
+
+      </>
+      )}
 
       <section className="surface-card p-5">
         <h2 className="font-bold">Add question</h2>
@@ -639,5 +658,123 @@ function Reports() {
         <p className="p-4 text-sm text-muted-foreground">No error reports.</p>
       )}
     </div>
+  );
+}
+
+const SUB_ROLES = [
+  { value: "teacher_admin", label: "Teacher admin" },
+  { value: "popular_student_admin", label: "Popular student admin" },
+] as const;
+
+function TeamRoles() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState<string>("teacher_admin");
+
+  const people = useQuery({
+    queryKey: ["team-people", search],
+    queryFn: async () => {
+      let q = supabase.from("profiles").select("id, username").order("username").limit(20);
+      if (search.trim()) q = q.ilike("username", `%${search.trim()}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const staff = useQuery({
+    queryKey: ["team-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("id, user_id, role")
+        .neq("role", "student");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const nameOf = (id: string) => people.data?.find((p) => p.id === id)?.username ?? id.slice(0, 8);
+
+  async function grant(userId: string) {
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({ user_id: userId, role: role as "teacher_admin" });
+    if (error) {
+      toast.error("Could not assign this role");
+      return;
+    }
+    toast.success("Role assigned");
+    queryClient.invalidateQueries({ queryKey: ["team-roles"] });
+  }
+
+  async function revoke(id: string) {
+    const { error } = await supabase.from("user_roles").delete().eq("id", id);
+    if (error) {
+      toast.error("Could not remove this role");
+      return;
+    }
+    toast.success("Role removed");
+    queryClient.invalidateQueries({ queryKey: ["team-roles"] });
+  }
+
+  return (
+    <section className="surface-card p-5">
+      <h2 className="font-bold">Team roles</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Sub-admins can add questions and passages as drafts only — they cannot publish, edit or
+        delete content, and they never see grading, analytics or student data.
+      </p>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_220px]">
+        <Input
+          placeholder="Search a student by username"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Select value={role} onValueChange={setRole}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SUB_ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ul className="mt-3 divide-y divide-border text-sm">
+        {(people.data ?? []).map((p) => (
+          <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0 truncate">{p.username}</span>
+            <Button size="sm" variant="outline" onClick={() => grant(p.id)}>
+              <Plus className="h-4 w-4" /> Assign
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mt-5 text-sm font-semibold">Current staff</h3>
+      <ul className="mt-2 divide-y divide-border text-sm">
+        {(staff.data ?? []).map((r) => (
+          <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0 truncate">
+              {nameOf(r.user_id)} · {r.role}
+            </span>
+            {r.role !== "admin" && (
+              <Button size="icon" variant="ghost" onClick={() => revoke(r.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </li>
+        ))}
+        {!staff.isLoading && (staff.data ?? []).length === 0 && (
+          <li className="py-2 text-muted-foreground">No staff roles assigned yet.</li>
+        )}
+      </ul>
+    </section>
   );
 }
