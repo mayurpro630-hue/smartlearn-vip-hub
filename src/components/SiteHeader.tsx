@@ -42,7 +42,7 @@ function VipTicker() {
 }
 
 export function SiteHeader() {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isContributor } = useAuth();
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -82,7 +82,7 @@ export function SiteHeader() {
                   <span className="hidden sm:inline">Revision</span>
                 </Link>
               </Button>
-              {isAdmin && (
+              {isContributor && (
                 <Button asChild variant="ghost" size="sm">
                   <Link to="/admin">
                     <Shield className="h-4 w-4" />
