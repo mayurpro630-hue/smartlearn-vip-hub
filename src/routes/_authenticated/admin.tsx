@@ -42,11 +42,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function Admin() {
-  const { isAdmin, refreshProfile } = useAuth();
+  const { isSuperAdmin, isSubAdmin, isContributor, refreshProfile } = useAuth();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!isAdmin) {
+  if (!isContributor) {
     return (
       <main className="mx-auto max-w-md px-4 py-12">
         <div className="surface-card p-6">
@@ -91,25 +91,31 @@ function Admin() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-bold sm:text-3xl">Admin panel</h1>
+      <h1 className="text-2xl font-bold sm:text-3xl">
+        {isSubAdmin ? "Content contributor panel" : "Admin panel"}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage content and monitor student activity.
+        {isSubAdmin
+          ? "You can add questions and passages. Everything you add is saved as a draft for the super admin to review and publish."
+          : "Manage content and monitor student activity."}
       </p>
 
       <Tabs defaultValue="content" className="mt-6">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4 lg:grid-cols-4">
           {(
             [
-              ["content", "Content"],
-              ["passage", "Passages"],
-              ["review", "Review & Publish"],
-              ["grading", "Manual Grading"],
-              ["analytics", "Analytics"],
-              ["students", "Students"],
-              ["vip", "VIP Settings"],
-              ["reports", "Reports"],
+              ["content", "Content", true],
+              ["passage", "Passages", true],
+              ["review", "Review & Publish", isSuperAdmin],
+              ["grading", "Manual Grading", isSuperAdmin],
+              ["analytics", "Analytics", isSuperAdmin],
+              ["students", "Students", isSuperAdmin],
+              ["vip", "VIP Settings", isSuperAdmin],
+              ["reports", "Reports", isSuperAdmin],
             ] as const
-          ).map(([value, label]) => (
+          )
+            .filter(([, , visible]) => visible)
+            .map(([value, label]) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -125,24 +131,31 @@ function Admin() {
         <TabsContent value="passage" className="mt-4">
           <PassageBuilder />
         </TabsContent>
-        <TabsContent value="review" className="mt-4">
-          <QuestionReview />
-        </TabsContent>
-        <TabsContent value="grading" className="mt-4">
-          <ManualGrading />
-        </TabsContent>
-        <TabsContent value="analytics" className="mt-4">
-          <TestAnalytics />
-        </TabsContent>
-        <TabsContent value="students" className="mt-4">
-          <StudentMonitor />
-        </TabsContent>
-        <TabsContent value="vip" className="mt-4">
-          <VipSettings />
-        </TabsContent>
-        <TabsContent value="reports" className="mt-4">
-          <Reports />
-        </TabsContent>
+        {isSuperAdmin && (
+          <>
+            <TabsContent value="review" className="mt-4">
+              <QuestionReview />
+            </TabsContent>
+            <TabsContent value="grading" className="mt-4">
+              <ManualGrading />
+            </TabsContent>
+            <TabsContent value="analytics" className="mt-4">
+              <TestAnalytics />
+            </TabsContent>
+            <TabsContent value="students" className="mt-4">
+              <TeamRoles />
+              <div className="mt-4">
+                <StudentMonitor />
+              </div>
+            </TabsContent>
+            <TabsContent value="vip" className="mt-4">
+              <VipSettings />
+            </TabsContent>
+            <TabsContent value="reports" className="mt-4">
+              <Reports />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
 
     </main>
@@ -150,6 +163,7 @@ function Admin() {
 }
 
 function ContentManager() {
+  const { isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [subjectName, setSubjectName] = useState("");
   const [chapterName, setChapterName] = useState("");
@@ -209,6 +223,8 @@ function ContentManager() {
 
   return (
     <div className="space-y-4">
+{isSuperAdmin && (
+      <>
       <section className="surface-card p-5">
         <h2 className="font-bold">Subjects</h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -362,6 +378,9 @@ function ContentManager() {
           ))}
         </ul>
       </section>
+
+      </>
+      )}
 
       <section className="surface-card p-5">
         <h2 className="font-bold">Add question</h2>
