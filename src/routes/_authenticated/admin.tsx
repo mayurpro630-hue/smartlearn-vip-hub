@@ -660,3 +660,121 @@ function Reports() {
     </div>
   );
 }
+
+const SUB_ROLES = [
+  { value: "teacher_admin", label: "Teacher admin" },
+  { value: "popular_student_admin", label: "Popular student admin" },
+] as const;
+
+function TeamRoles() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState<string>("teacher_admin");
+
+  const people = useQuery({
+    queryKey: ["team-people", search],
+    queryFn: async () => {
+      let q = supabase.from("profiles").select("id, username").order("username").limit(20);
+      if (search.trim()) q = q.ilike("username", `%${search.trim()}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const staff = useQuery({
+    queryKey: ["team-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("id, user_id, role")
+        .neq("role", "student");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const nameOf = (id: string) => people.data?.find((p) => p.id === id)?.username ?? id.slice(0, 8);
+
+  async function grant(userId: string) {
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({ user_id: userId, role: role as "teacher_admin" });
+    if (error) {
+      toast.error("Could not assign this role");
+      return;
+    }
+    toast.success("Role assigned");
+    queryClient.invalidateQueries({ queryKey: ["team-roles"] });
+  }
+
+  async function revoke(id: string) {
+    const { error } = await supabase.from("user_roles").delete().eq("id", id);
+    if (error) {
+      toast.error("Could not remove this role");
+      return;
+    }
+    toast.success("Role removed");
+    queryClient.invalidateQueries({ queryKey: ["team-roles"] });
+  }
+
+  return (
+    <section className="surface-card p-5">
+      <h2 className="font-bold">Team roles</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Sub-admins can add questions and passages as drafts only — they cannot publish, edit or
+        delete content, and they never see grading, analytics or student data.
+      </p>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_220px]">
+        <Input
+          placeholder="Search a student by username"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Select value={role} onValueChange={setRole}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SUB_ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ul className="mt-3 divide-y divide-border text-sm">
+        {(people.data ?? []).map((p) => (
+          <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0 truncate">{p.username}</span>
+            <Button size="sm" variant="outline" onClick={() => grant(p.id)}>
+              <Plus className="h-4 w-4" /> Assign
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="mt-5 text-sm font-semibold">Current staff</h3>
+      <ul className="mt-2 divide-y divide-border text-sm">
+        {(staff.data ?? []).map((r) => (
+          <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0 truncate">
+              {nameOf(r.user_id)} · {r.role}
+            </span>
+            {r.role !== "admin" && (
+              <Button size="icon" variant="ghost" onClick={() => revoke(r.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </li>
+        ))}
+        {!staff.isLoading && (staff.data ?? []).length === 0 && (
+          <li className="py-2 text-muted-foreground">No staff roles assigned yet.</li>
+        )}
+      </ul>
+    </section>
+  );
+}
