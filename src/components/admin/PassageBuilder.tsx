@@ -253,9 +253,11 @@ export function PassageBuilder() {
                   {p.tests?.title} · {p.question_text}{" "}
                   <span className="text-xs text-muted-foreground">({p.status})</span>
                 </span>
-                <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {isSuperAdmin && (
+                  <Button size="icon" variant="ghost" onClick={() => remove(p.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
