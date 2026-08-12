@@ -487,9 +487,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_content_contributor: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "student"
+      app_role: "admin" | "student" | "teacher_admin" | "popular_student_admin"
       publish_status: "draft" | "published"
       question_kind: "mcq" | "subjective" | "passage"
     }
@@ -619,7 +620,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "student"],
+      app_role: ["admin", "student", "teacher_admin", "popular_student_admin"],
       publish_status: ["draft", "published"],
       question_kind: ["mcq", "subjective", "passage"],
     },
