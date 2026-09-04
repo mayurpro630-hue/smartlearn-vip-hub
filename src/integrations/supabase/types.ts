@@ -138,6 +138,219 @@ export type Database = {
           },
         ]
       }
+      english_exercises: {
+        Row: {
+          audio_text: string | null
+          correct_answer: string | null
+          created_at: string
+          explanation: string | null
+          helper_text: string | null
+          id: string
+          kind: Database["public"]["Enums"]["english_exercise_kind"]
+          lesson_id: string
+          options: Json
+          pairs: Json
+          position: number
+          prompt: string
+          updated_at: string
+        }
+        Insert: {
+          audio_text?: string | null
+          correct_answer?: string | null
+          created_at?: string
+          explanation?: string | null
+          helper_text?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["english_exercise_kind"]
+          lesson_id: string
+          options?: Json
+          pairs?: Json
+          position?: number
+          prompt: string
+          updated_at?: string
+        }
+        Update: {
+          audio_text?: string | null
+          correct_answer?: string | null
+          created_at?: string
+          explanation?: string | null
+          helper_text?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["english_exercise_kind"]
+          lesson_id?: string
+          options?: Json
+          pairs?: Json
+          position?: number
+          prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_exercises_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "english_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      english_lessons: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          level_id: string
+          position: number
+          title: string
+          updated_at: string
+          xp_reward: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          level_id: string
+          position?: number
+          title: string
+          updated_at?: string
+          xp_reward?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          level_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+          xp_reward?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_lessons_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "english_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      english_levels: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          level_number: number
+          position: number
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_number: number
+          position?: number
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_number?: number
+          position?: number
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      english_progress: {
+        Row: {
+          attempts: number
+          completed_at: string
+          correct_count: number
+          created_at: string
+          id: string
+          lesson_id: string
+          total_count: number
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          lesson_id: string
+          total_count?: number
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          total_count?: number
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "english_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      english_stats: {
+        Row: {
+          created_at: string
+          current_streak: number
+          last_active_date: string | null
+          lessons_completed: number
+          longest_streak: number
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          last_active_date?: string | null
+          lessons_completed?: number
+          longest_streak?: number
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          last_active_date?: string | null
+          lessons_completed?: number
+          longest_streak?: number
+          updated_at?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       error_reports: {
         Row: {
           created_at: string
@@ -491,6 +704,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "student" | "teacher_admin" | "popular_student_admin"
+      english_exercise_kind: "mcq" | "match" | "fill_blank" | "audio" | "speak"
       publish_status: "draft" | "published"
       question_kind: "mcq" | "subjective" | "passage"
     }
@@ -621,6 +835,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "student", "teacher_admin", "popular_student_admin"],
+      english_exercise_kind: ["mcq", "match", "fill_blank", "audio", "speak"],
       publish_status: ["draft", "published"],
       question_kind: ["mcq", "subjective", "passage"],
     },
