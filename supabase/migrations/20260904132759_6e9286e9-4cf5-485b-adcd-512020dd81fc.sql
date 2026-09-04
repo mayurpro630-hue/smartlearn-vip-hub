@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.apply_english_progress() FROM PUBLIC, anon, authenticated;
