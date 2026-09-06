@@ -14,10 +14,10 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedEnglishRouteImport } from './routes/_authenticated/english'
 import { Route as AuthenticatedRevisionRouteImport } from './routes/_authenticated/revision'
 import { Route as ChapterChapterIdRouteImport } from './routes/chapter.$chapterId'
 import { Route as SubjectSubjectIdRouteImport } from './routes/subject.$subjectId'
+import { Route as AuthenticatedEnglishIndexRouteImport } from './routes/_authenticated/english.index'
 import { Route as AuthenticatedEnglishTutorRouteImport } from './routes/_authenticated/english.tutor'
 import { Route as AuthenticatedTestTestIdRouteImport } from './routes/_authenticated/test.$testId'
 import { Route as AuthenticatedEnglishLessonLessonIdRouteImport } from './routes/_authenticated/english.lesson.$lessonId'
@@ -46,11 +46,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedEnglishRoute = AuthenticatedEnglishRouteImport.update({
-  id: '/english',
-  path: '/english',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedRevisionRoute = AuthenticatedRevisionRouteImport.update({
   id: '/revision',
   path: '/revision',
@@ -66,11 +61,17 @@ const SubjectSubjectIdRoute = SubjectSubjectIdRouteImport.update({
   path: '/subject/$subjectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedEnglishIndexRoute =
+  AuthenticatedEnglishIndexRouteImport.update({
+    id: '/english/',
+    path: '/english/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEnglishTutorRoute =
   AuthenticatedEnglishTutorRouteImport.update({
-    id: '/tutor',
-    path: '/tutor',
-    getParentRoute: () => AuthenticatedEnglishRoute,
+    id: '/english/tutor',
+    path: '/english/tutor',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedTestTestIdRoute = AuthenticatedTestTestIdRouteImport.update({
   id: '/test/$testId',
@@ -79,9 +80,9 @@ const AuthenticatedTestTestIdRoute = AuthenticatedTestTestIdRouteImport.update({
 } as any)
 const AuthenticatedEnglishLessonLessonIdRoute =
   AuthenticatedEnglishLessonLessonIdRouteImport.update({
-    id: '/lesson/$lessonId',
-    path: '/lesson/$lessonId',
-    getParentRoute: () => AuthenticatedEnglishRoute,
+    id: '/english/lesson/$lessonId',
+    path: '/english/lesson/$lessonId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -89,12 +90,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/english': typeof AuthenticatedEnglishRouteWithChildren
   '/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/english/tutor': typeof AuthenticatedEnglishTutorRoute
   '/test/$testId': typeof AuthenticatedTestTestIdRoute
+  '/english/': typeof AuthenticatedEnglishIndexRoute
   '/english/lesson/$lessonId': typeof AuthenticatedEnglishLessonLessonIdRoute
 }
 export interface FileRoutesByTo {
@@ -102,12 +103,12 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/english': typeof AuthenticatedEnglishRouteWithChildren
   '/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/english/tutor': typeof AuthenticatedEnglishTutorRoute
   '/test/$testId': typeof AuthenticatedTestTestIdRoute
+  '/english': typeof AuthenticatedEnglishIndexRoute
   '/english/lesson/$lessonId': typeof AuthenticatedEnglishLessonLessonIdRoute
 }
 export interface FileRoutesById {
@@ -117,12 +118,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/english': typeof AuthenticatedEnglishRouteWithChildren
   '/_authenticated/revision': typeof AuthenticatedRevisionRoute
   '/chapter/$chapterId': typeof ChapterChapterIdRoute
   '/subject/$subjectId': typeof SubjectSubjectIdRoute
   '/_authenticated/english/tutor': typeof AuthenticatedEnglishTutorRoute
   '/_authenticated/test/$testId': typeof AuthenticatedTestTestIdRoute
+  '/_authenticated/english/': typeof AuthenticatedEnglishIndexRoute
   '/_authenticated/english/lesson/$lessonId': typeof AuthenticatedEnglishLessonLessonIdRoute
 }
 export interface FileRouteTypes {
@@ -132,12 +133,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/dashboard'
-    | '/english'
     | '/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/english/tutor'
     | '/test/$testId'
+    | '/english/'
     | '/english/lesson/$lessonId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -145,12 +146,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/dashboard'
-    | '/english'
     | '/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/english/tutor'
     | '/test/$testId'
+    | '/english'
     | '/english/lesson/$lessonId'
   id:
     | '__root__'
@@ -159,12 +160,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/english'
     | '/_authenticated/revision'
     | '/chapter/$chapterId'
     | '/subject/$subjectId'
     | '/_authenticated/english/tutor'
     | '/_authenticated/test/$testId'
+    | '/_authenticated/english/'
     | '/_authenticated/english/lesson/$lessonId'
   fileRoutesById: FileRoutesById
 }
@@ -213,13 +214,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/english': {
-      id: '/_authenticated/english'
-      path: '/english'
-      fullPath: '/english'
-      preLoaderRoute: typeof AuthenticatedEnglishRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/revision': {
       id: '/_authenticated/revision'
       path: '/revision'
@@ -241,12 +235,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubjectSubjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/english/': {
+      id: '/_authenticated/english/'
+      path: '/english'
+      fullPath: '/english/'
+      preLoaderRoute: typeof AuthenticatedEnglishIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/english/tutor': {
       id: '/_authenticated/english/tutor'
-      path: '/tutor'
+      path: '/english/tutor'
       fullPath: '/english/tutor'
       preLoaderRoute: typeof AuthenticatedEnglishTutorRouteImport
-      parentRoute: typeof AuthenticatedEnglishRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/test/$testId': {
       id: '/_authenticated/test/$testId'
@@ -257,42 +258,33 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/english/lesson/$lessonId': {
       id: '/_authenticated/english/lesson/$lessonId'
-      path: '/lesson/$lessonId'
+      path: '/english/lesson/$lessonId'
       fullPath: '/english/lesson/$lessonId'
       preLoaderRoute: typeof AuthenticatedEnglishLessonLessonIdRouteImport
-      parentRoute: typeof AuthenticatedEnglishRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface AuthenticatedEnglishRouteChildren {
-  AuthenticatedEnglishTutorRoute: typeof AuthenticatedEnglishTutorRoute
-  AuthenticatedEnglishLessonLessonIdRoute: typeof AuthenticatedEnglishLessonLessonIdRoute
-}
-
-const AuthenticatedEnglishRouteChildren: AuthenticatedEnglishRouteChildren = {
-  AuthenticatedEnglishTutorRoute: AuthenticatedEnglishTutorRoute,
-  AuthenticatedEnglishLessonLessonIdRoute:
-    AuthenticatedEnglishLessonLessonIdRoute,
-}
-
-const AuthenticatedEnglishRouteWithChildren =
-  AuthenticatedEnglishRoute._addFileChildren(AuthenticatedEnglishRouteChildren)
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedEnglishRoute: typeof AuthenticatedEnglishRouteWithChildren
   AuthenticatedRevisionRoute: typeof AuthenticatedRevisionRoute
+  AuthenticatedEnglishTutorRoute: typeof AuthenticatedEnglishTutorRoute
   AuthenticatedTestTestIdRoute: typeof AuthenticatedTestTestIdRoute
+  AuthenticatedEnglishIndexRoute: typeof AuthenticatedEnglishIndexRoute
+  AuthenticatedEnglishLessonLessonIdRoute: typeof AuthenticatedEnglishLessonLessonIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedEnglishRoute: AuthenticatedEnglishRouteWithChildren,
   AuthenticatedRevisionRoute: AuthenticatedRevisionRoute,
+  AuthenticatedEnglishTutorRoute: AuthenticatedEnglishTutorRoute,
   AuthenticatedTestTestIdRoute: AuthenticatedTestTestIdRoute,
+  AuthenticatedEnglishIndexRoute: AuthenticatedEnglishIndexRoute,
+  AuthenticatedEnglishLessonLessonIdRoute:
+    AuthenticatedEnglishLessonLessonIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
