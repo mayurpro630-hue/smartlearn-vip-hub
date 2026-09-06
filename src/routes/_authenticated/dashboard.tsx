@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { VipBadge, VipTierHint } from "@/components/VipBadge";
+import { EnglishDashboardCard } from "@/components/EnglishDashboardCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -85,6 +86,10 @@ function Dashboard() {
           hours) to activate your VIP badge and unlock the 💡 Hint button.
         </div>
       )}
+
+      <div className="mt-6">
+        <EnglishDashboardCard />
+      </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
