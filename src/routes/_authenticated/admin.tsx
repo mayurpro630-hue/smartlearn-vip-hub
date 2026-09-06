@@ -16,6 +16,7 @@ import { ManualGrading } from "@/components/admin/ManualGrading";
 import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytics";
 import { VipSettings } from "@/components/admin/VipSettings";
 import { PassageBuilder } from "@/components/admin/PassageBuilder";
+import { EnglishCourseManager } from "@/components/admin/EnglishCourseManager";
 import { VipBadge } from "@/components/VipBadge";
 
 import {
@@ -110,6 +111,7 @@ function Admin() {
               ["grading", "Manual Grading", isSuperAdmin],
               ["analytics", "Analytics", isSuperAdmin],
               ["students", "Students", isSuperAdmin],
+              ["english", "English Course", isSuperAdmin],
               ["vip", "VIP Settings", isSuperAdmin],
               ["reports", "Reports", isSuperAdmin],
             ] as const
@@ -147,6 +149,9 @@ function Admin() {
               <div className="mt-4">
                 <StudentMonitor />
               </div>
+            </TabsContent>
+            <TabsContent value="english" className="mt-4">
+              <EnglishCourseManager canManage />
             </TabsContent>
             <TabsContent value="vip" className="mt-4">
               <VipSettings />
