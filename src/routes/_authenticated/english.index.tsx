@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { LEVEL_ACCENT } from "@/lib/english";
 
-export const Route = createFileRoute("/_authenticated/english")({
+export const Route = createFileRoute("/_authenticated/english/")({
   head: () => ({
     meta: [
       { title: "Learn English — Mayur Education" },
