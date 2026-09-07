@@ -107,6 +107,7 @@ function Admin() {
             [
               ["content", "Content", true],
               ["passage", "Passages", true],
+              ["copilot", "AI Copilot", isSuperAdmin],
               ["review", "Review & Publish", isSuperAdmin],
               ["grading", "Manual Grading", isSuperAdmin],
               ["analytics", "Analytics", isSuperAdmin],
