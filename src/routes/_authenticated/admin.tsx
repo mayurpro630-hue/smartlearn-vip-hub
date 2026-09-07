@@ -17,6 +17,7 @@ import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytic
 import { VipSettings } from "@/components/admin/VipSettings";
 import { PassageBuilder } from "@/components/admin/PassageBuilder";
 import { EnglishCourseManager } from "@/components/admin/EnglishCourseManager";
+import { AdminCopilot } from "@/components/admin/AdminCopilot";
 import { VipBadge } from "@/components/VipBadge";
 
 import {
