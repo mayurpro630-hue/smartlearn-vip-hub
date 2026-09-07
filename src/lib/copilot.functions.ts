@@ -331,7 +331,7 @@ async function runTool(
       return { ok: true, published: data?.length ?? 0 };
     }
     case "update_test": {
-      const patch: Record<string, unknown> = {};
+      const patch: any = {};
       if (args.title) patch.title = String(args.title).slice(0, 160);
       if (args.duration_minutes)
         patch.duration_minutes = Math.min(Math.max(Number(args.duration_minutes), 1), 180);
@@ -347,7 +347,7 @@ async function runTool(
       return { ok: true, test: data };
     }
     case "update_chapter": {
-      const patch: Record<string, unknown> = {};
+      const patch: any = {};
       if (args.name) patch.name = String(args.name).slice(0, 160);
       if (args.description !== undefined) patch.description = String(args.description).slice(0, 600);
       if (Object.keys(patch).length === 0) return fail("Nothing to update.");
