@@ -136,9 +136,13 @@ function Admin() {
         </TabsContent>
         {isSuperAdmin && (
           <>
+            <TabsContent value="copilot" className="mt-4">
+              <AdminCopilot />
+            </TabsContent>
             <TabsContent value="review" className="mt-4">
               <QuestionReview />
             </TabsContent>
+
             <TabsContent value="grading" className="mt-4">
               <ManualGrading />
             </TabsContent>
