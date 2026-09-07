@@ -192,7 +192,7 @@ type Supa = { from: (t: string) => any };
 async function runTool(
   supabase: Supa,
   name: string,
-  args: Record<string, any>,
+  args: any,
   actions: string[],
 ): Promise<unknown> {
   const fail = (msg: string) => ({ ok: false, error: msg });
@@ -477,7 +477,7 @@ export const runAdminCopilot = createServerFn({ method: "POST" })
       });
 
       for (const call of toolCalls) {
-        let args: Record<string, any> = {};
+        let args: any = {};
         try {
           args = call.function.arguments ? JSON.parse(call.function.arguments) : {};
         } catch {
