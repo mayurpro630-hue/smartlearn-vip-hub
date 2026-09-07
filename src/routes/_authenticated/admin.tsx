@@ -17,6 +17,7 @@ import { TestAnalytics, AttemptBreakdown } from "@/components/admin/TestAnalytic
 import { VipSettings } from "@/components/admin/VipSettings";
 import { PassageBuilder } from "@/components/admin/PassageBuilder";
 import { EnglishCourseManager } from "@/components/admin/EnglishCourseManager";
+import { AdminCopilot } from "@/components/admin/AdminCopilot";
 import { VipBadge } from "@/components/VipBadge";
 
 import {
@@ -107,6 +108,7 @@ function Admin() {
             [
               ["content", "Content", true],
               ["passage", "Passages", true],
+              ["copilot", "AI Copilot", isSuperAdmin],
               ["review", "Review & Publish", isSuperAdmin],
               ["grading", "Manual Grading", isSuperAdmin],
               ["analytics", "Analytics", isSuperAdmin],
@@ -135,9 +137,13 @@ function Admin() {
         </TabsContent>
         {isSuperAdmin && (
           <>
+            <TabsContent value="copilot" className="mt-4">
+              <AdminCopilot />
+            </TabsContent>
             <TabsContent value="review" className="mt-4">
               <QuestionReview />
             </TabsContent>
+
             <TabsContent value="grading" className="mt-4">
               <ManualGrading />
             </TabsContent>
