@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          assistant: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assistant?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assistant?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          image_url: string | null
+          role: string
+        }
+        Insert: {
+          content?: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attempt_answers: {
         Row: {
           answer_text: string | null
@@ -145,13 +207,18 @@ export type Database = {
           created_at: string
           explanation: string | null
           helper_text: string | null
+          hint_mr: string | null
           id: string
           kind: Database["public"]["Enums"]["english_exercise_kind"]
           lesson_id: string
+          meaning_mr: string | null
+          media: string | null
           options: Json
           pairs: Json
           position: number
           prompt: string
+          prompt_mr: string | null
+          pronunciation_mr: string | null
           updated_at: string
         }
         Insert: {
@@ -160,13 +227,18 @@ export type Database = {
           created_at?: string
           explanation?: string | null
           helper_text?: string | null
+          hint_mr?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["english_exercise_kind"]
           lesson_id: string
+          meaning_mr?: string | null
+          media?: string | null
           options?: Json
           pairs?: Json
           position?: number
           prompt: string
+          prompt_mr?: string | null
+          pronunciation_mr?: string | null
           updated_at?: string
         }
         Update: {
@@ -175,13 +247,18 @@ export type Database = {
           created_at?: string
           explanation?: string | null
           helper_text?: string | null
+          hint_mr?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["english_exercise_kind"]
           lesson_id?: string
+          meaning_mr?: string | null
+          media?: string | null
           options?: Json
           pairs?: Json
           position?: number
           prompt?: string
+          prompt_mr?: string | null
+          pronunciation_mr?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -198,33 +275,39 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          description_mr: string | null
           icon: string | null
           id: string
           level_id: string
           position: number
           title: string
+          title_mr: string | null
           updated_at: string
           xp_reward: number
         }
         Insert: {
           created_at?: string
           description?: string | null
+          description_mr?: string | null
           icon?: string | null
           id?: string
           level_id: string
           position?: number
           title: string
+          title_mr?: string | null
           updated_at?: string
           xp_reward?: number
         }
         Update: {
           created_at?: string
           description?: string | null
+          description_mr?: string | null
           icon?: string | null
           id?: string
           level_id?: string
           position?: number
           title?: string
+          title_mr?: string | null
           updated_at?: string
           xp_reward?: number
         }
@@ -704,7 +787,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "student" | "teacher_admin" | "popular_student_admin"
-      english_exercise_kind: "mcq" | "match" | "fill_blank" | "audio" | "speak"
+      english_exercise_kind:
+        | "mcq"
+        | "match"
+        | "fill_blank"
+        | "audio"
+        | "speak"
+        | "build"
       publish_status: "draft" | "published"
       question_kind: "mcq" | "subjective" | "passage"
     }
@@ -835,7 +924,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "student", "teacher_admin", "popular_student_admin"],
-      english_exercise_kind: ["mcq", "match", "fill_blank", "audio", "speak"],
+      english_exercise_kind: [
+        "mcq",
+        "match",
+        "fill_blank",
+        "audio",
+        "speak",
+        "build",
+      ],
       publish_status: ["draft", "published"],
       question_kind: ["mcq", "subjective", "passage"],
     },
