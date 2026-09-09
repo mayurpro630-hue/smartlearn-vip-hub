@@ -204,7 +204,39 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_passage_with_questions",
+      description:
+        "Create a reading-comprehension passage inside a test, with descriptive sub-questions and model answers for grading.",
+      parameters: {
+        type: "object",
+        properties: {
+          test_id: { type: "string" },
+          title: { type: "string" },
+          passage_text: { type: "string" },
+          publish: { type: "boolean" },
+          questions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                question_text: { type: "string" },
+                model_answer: { type: "string" },
+                marks: { type: "number" },
+                hint: { type: "string" },
+              },
+              required: ["question_text", "model_answer"],
+            },
+          },
+        },
+        required: ["test_id", "title", "passage_text", "questions"],
+      },
+    },
+  },
 ] as const;
+
 
 type Supa = { from: (t: string) => any };
 
