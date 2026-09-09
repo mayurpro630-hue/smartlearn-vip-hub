@@ -1,7 +1,26 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; image?: string | null };
+
+function toGatewayMessage(m: ChatTurn) {
+  if (m.role === "user" && m.image) {
+    return {
+      role: "user" as const,
+      content: [
+        {
+          type: "text",
+          text:
+            m.content ||
+            "Read this photo of a textbook / question paper and create the content it contains.",
+        },
+        { type: "image_url", image_url: { url: m.image } },
+      ],
+    };
+  }
+  return { role: m.role, content: m.content };
+}
+
 
 const SYSTEM_PROMPT = `You are the AI Admin Copilot inside the "Mayur Education" learning app admin panel.
 You help the super admin manage content: subjects, chapters, tests, and questions (MCQs).
