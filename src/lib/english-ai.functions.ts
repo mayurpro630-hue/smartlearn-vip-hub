@@ -1,7 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; image?: string | null };
+
+function toGatewayMessage(m: ChatTurn) {
+  if (m.role === "user" && m.image) {
+    return {
+      role: "user" as const,
+      content: [
+        { type: "text", text: m.content || "Please look at this photo and help me." },
+        { type: "image_url", image_url: { url: m.image } },
+      ],
+    };
+  }
+  return { role: m.role, content: m.content };
+}
+
 
 const SYSTEM_PROMPT = `You are "Mayur", a warm and encouraging English-speaking tutor inside the Mayur Education app.
 Your students are Indian school and college learners (many speak Marathi or Hindi at home) who want to speak fluent English.
