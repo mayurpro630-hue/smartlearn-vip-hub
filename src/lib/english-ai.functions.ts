@@ -38,7 +38,12 @@ export const askMayurTutor = createServerFn({ method: "POST" })
     const messages = data.messages.slice(-24).map((m) => ({
       role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
       content: String(m.content ?? "").slice(0, 4000),
+      image:
+        typeof m.image === "string" && m.image.startsWith("data:image/")
+          ? m.image.slice(0, 12_000_000)
+          : null,
     }));
+
     return { messages, level: typeof data.level === "string" ? data.level.slice(0, 60) : "" };
   })
   .handler(async ({ data }) => {
