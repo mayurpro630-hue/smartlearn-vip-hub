@@ -423,6 +423,64 @@ async function runTool(
       actions.push(`Deleted test: ${existing?.title ?? args.test_id}`);
       return { ok: true };
     }
+    case "create_passage_with_questions": {
+      const subs = (Array.isArray(args.questions) ? args.questions : []).filter(
+        (q: any) => q?.question_text && q?.model_answer,
+      );
+      if (subs.length === 0) return fail("No valid sub-questions were provided.");
+      const publish = args.publish === true;
+      const now = new Date().toISOString();
+      const { count } = await supabase
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .eq("test_id", args.test_id);
+      const base = count ?? 0;
+      const blank = {
+        option_a: "",
+        option_b: "",
+        option_c: "",
+        option_d: "",
+        correct_option: "",
+      };
+      const { data: parent, error } = await supabase
+        .from("questions")
+        .insert({
+          test_id: args.test_id,
+          question_text: String(args.title).slice(0, 300),
+          passage_text: String(args.passage_text).slice(0, 12000),
+          question_type: "passage",
+          marks: 1,
+          status: publish ? "published" : "draft",
+          published_at: publish ? now : null,
+          position: base + 1,
+          ...blank,
+        })
+        .select("id")
+        .single();
+      if (error || !parent) return fail(error?.message ?? "Could not save the passage.");
+
+      const { error: subError } = await supabase.from("questions").insert(
+        subs.map((s: any, i: number) => ({
+          test_id: args.test_id,
+          passage_id: parent.id,
+          question_text: String(s.question_text),
+          question_type: "subjective",
+          model_answer: String(s.model_answer),
+          hint: s.hint ? String(s.hint) : null,
+          marks: Math.min(Math.max(Number(s.marks) || 2, 1), 20),
+          status: publish ? "published" : "draft",
+          published_at: publish ? now : null,
+          position: base + 2 + i,
+          ...blank,
+        })),
+      );
+      if (subError) return fail(subError.message);
+      actions.push(
+        `Created passage: ${String(args.title).slice(0, 60)} with ${subs.length} questions (${publish ? "published" : "draft"})`,
+      );
+      return { ok: true, passage_id: parent.id, questions: subs.length };
+    }
+
     case "delete_chapter": {
       const { data: existing } = await supabase
         .from("chapters")
