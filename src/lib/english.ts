@@ -1,4 +1,4 @@
-export type ExerciseKind = "mcq" | "match" | "fill_blank" | "audio" | "speak";
+export type ExerciseKind = "mcq" | "match" | "fill_blank" | "audio" | "speak" | "build";
 
 export type Pair = { left: string; right: string };
 
@@ -14,6 +14,11 @@ export type EnglishExercise = {
   audio_text: string | null;
   explanation: string | null;
   position: number;
+  prompt_mr?: string | null;
+  meaning_mr?: string | null;
+  pronunciation_mr?: string | null;
+  hint_mr?: string | null;
+  media?: string | null;
 };
 
 export function asOptions(value: unknown): string[] {
@@ -52,18 +57,28 @@ export function speechSimilarity(expected: string, given: string) {
   return hits / want.length;
 }
 
-export function speak(text: string, lang = "en-IN") {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang;
-    utter.rate = 0.85;
-    window.speechSynthesis.speak(utter);
-    return true;
-  } catch {
-    return false;
+/** Stable-ish shuffle so the order doesn't jump on every re-render. */
+export function shuffle<T>(items: T[], seed = 1): T[] {
+  const out = [...items];
+  let s = seed || 1;
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    s = (s * 9301 + 49297) % 233280;
+    const j = Math.floor((s / 233280) * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
   }
+  return out;
+}
+
+/** Word tiles for a sentence-building exercise. */
+export function sentenceTiles(sentence: string, seed = 7) {
+  return shuffle(
+    sentence
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(" ")
+      .filter(Boolean),
+    seed,
+  );
 }
 
 type RecognitionCtor = new () => {
