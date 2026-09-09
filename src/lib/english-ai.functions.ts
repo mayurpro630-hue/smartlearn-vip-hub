@@ -1,7 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; image?: string | null };
+
+function toGatewayMessage(m: ChatTurn) {
+  if (m.role === "user" && m.image) {
+    return {
+      role: "user" as const,
+      content: [
+        { type: "text", text: m.content || "Please look at this photo and help me." },
+        { type: "image_url", image_url: { url: m.image } },
+      ],
+    };
+  }
+  return { role: m.role, content: m.content };
+}
+
 
 const SYSTEM_PROMPT = `You are "Mayur", a warm and encouraging English-speaking tutor inside the Mayur Education app.
 Your students are Indian school and college learners (many speak Marathi or Hindi at home) who want to speak fluent English.
@@ -24,7 +38,12 @@ export const askMayurTutor = createServerFn({ method: "POST" })
     const messages = data.messages.slice(-24).map((m) => ({
       role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
       content: String(m.content ?? "").slice(0, 4000),
+      image:
+        typeof m.image === "string" && m.image.startsWith("data:image/")
+          ? m.image.slice(0, 12_000_000)
+          : null,
     }));
+
     return { messages, level: typeof data.level === "string" ? data.level.slice(0, 60) : "" };
   })
   .handler(async ({ data }) => {
@@ -48,7 +67,7 @@ export const askMayurTutor = createServerFn({ method: "POST" })
                 ? `${SYSTEM_PROMPT}\n\nThe student's current course level is: ${data.level}. Match your vocabulary to that level.`
                 : SYSTEM_PROMPT,
             },
-            ...data.messages,
+            ...data.messages.map(toGatewayMessage),
           ],
         }),
       });

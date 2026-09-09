@@ -67,14 +67,12 @@ export async function listMessages(conversationId: string) {
 
 export async function addMessage(
   conversationId: string,
-  userId: string,
   role: "user" | "assistant",
   content: string,
   imageUrl?: string | null,
 ) {
   const { error } = await supabase.from("ai_messages").insert({
     conversation_id: conversationId,
-    user_id: userId,
     role,
     content,
     image_url: imageUrl ?? null,
@@ -85,6 +83,7 @@ export async function addMessage(
     .update({ updated_at: new Date().toISOString() })
     .eq("id", conversationId);
 }
+
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
