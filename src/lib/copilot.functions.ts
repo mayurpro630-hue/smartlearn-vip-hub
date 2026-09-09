@@ -530,7 +530,7 @@ export const runAdminCopilot = createServerFn({ method: "POST" })
     const actions: string[] = [];
     const convo: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...data.messages,
+      ...data.messages.map(toGatewayMessage),
     ];
 
     for (let step = 0; step < 8; step += 1) {
