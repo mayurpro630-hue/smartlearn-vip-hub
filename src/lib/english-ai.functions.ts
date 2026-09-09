@@ -67,7 +67,7 @@ export const askMayurTutor = createServerFn({ method: "POST" })
                 ? `${SYSTEM_PROMPT}\n\nThe student's current course level is: ${data.level}. Match your vocabulary to that level.`
                 : SYSTEM_PROMPT,
             },
-            ...data.messages,
+            ...data.messages.map(toGatewayMessage),
           ],
         }),
       });
