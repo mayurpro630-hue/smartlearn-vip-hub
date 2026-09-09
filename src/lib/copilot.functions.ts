@@ -507,7 +507,12 @@ export const runAdminCopilot = createServerFn({ method: "POST" })
       messages: data.messages.slice(-16).map((m) => ({
         role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
         content: String(m.content ?? "").slice(0, 4000),
+        image:
+          typeof m.image === "string" && m.image.startsWith("data:image/")
+            ? m.image.slice(0, 12_000_000)
+            : null,
       })),
+
     };
   })
   .handler(async ({ data, context }) => {
